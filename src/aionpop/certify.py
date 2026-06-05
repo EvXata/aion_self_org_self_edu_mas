@@ -130,12 +130,16 @@ def certify(
     # --- Screen: keep mechanisms whose primary mean uplift clears the threshold ---
     primary: Dict[str, List[float]] = {}
     for m in mechanism_ids:
-        primary[m] = [t - c for (c, t) in anchor.observe(m, edu.n_units, rng)]
+        primary[m] = [t - c for (c, t) in anchor.observe(m, edu.n_units, rng, fold=0)]
     screened = {m: _mean(primary[m]) > edu.screen_threshold for m in mechanism_ids}
     screened_ids = [m for m in mechanism_ids if screened[m]]
 
-    # --- Confirm: paired-permutation p, then BH-FDR across the screened set ---
-    pvals = [paired_permutation_p(primary[m], edu.n_permutations, rng) for m in screened_ids]
+    # --- Confirm (independent fold 1 → no screen/confirm double-dip): perm-p + BH-FDR ---
+    confirm_s: Dict[str, List[float]] = {
+        m: [t - c for (c, t) in anchor.observe(m, edu.n_units, rng, fold=1)]
+        for m in mechanism_ids
+    }
+    pvals = [paired_permutation_p(confirm_s[m], edu.n_permutations, rng) for m in screened_ids]
     confirmed_flags = benjamini_hochberg(pvals, edu.fdr_q)
     confirmed = {m: confirmed_flags[i] for i, m in enumerate(screened_ids)}
     pval_by = {m: pvals[i] for i, m in enumerate(screened_ids)}
@@ -149,7 +153,7 @@ def certify(
         if not edu.replicate:
             replicated[m] = True
             continue
-        rep = [t - c for (c, t) in anchor.observe(m, edu.n_units, rng, perturbed=True)]
+        rep = [t - c for (c, t) in anchor.observe(m, edu.n_units, rng, fold=2)]
         rep_p = paired_permutation_p(rep, edu.n_permutations, rng)
         replicated[m] = _mean(rep) > 0 and rep_p <= edu.replicate_min_p
 
@@ -159,9 +163,9 @@ def certify(
         verdicts.append(
             MechVerdict(
                 mech_id=m,
-                measured_effect=_mean(primary[m]),
+                measured_effect=_mean(confirm_s[m]),
                 p=pval_by.get(m, 1.0),
-                dz=cohens_dz(primary[m]),
+                dz=cohens_dz(confirm_s[m]),
                 screened=screened.get(m, False),
                 confirmed=confirmed.get(m, False),
                 replicated=replicated.get(m, False),

@@ -42,10 +42,11 @@ class SyntheticAnchor(Anchor):
         return self._planted.get(mechanism_id, 0.0)
 
     def observe(
-        self, mechanism_id: str, n_units: int, rng: random.Random, perturbed: bool = False
+        self, mechanism_id: str, n_units: int, rng: random.Random, fold: int = 0
     ) -> List[Pair]:
+        # Every fold is an independent fresh draw; fold 2 (replicate) is a perturbed world.
         eff = self._planted.get(mechanism_id, 0.0)
-        if perturbed:
+        if fold == 2:
             # A different but related world: jitter the effect. A real signal keeps
             # its sign; noise does not survive the sign-stability requirement.
             eff = eff * (1.0 + rng.gauss(0.0, self.perturb_scale))

@@ -40,8 +40,9 @@ def test_csv_nonnumeric_rows_skipped(tmp_path):
     p = tmp_path / "a.csv"
     p.write_text("mechanism_id,predicted,actual\nm,0,1\nm,x,y\nm,1,1\nm,1,0\n")
     a = CSVAnchor(str(p))
-    total = len(a.observe("m", 99, random.Random(0))) + len(a.observe("m", 99, random.Random(0), perturbed=True))
-    assert total == 3            # the malformed row was dropped, the 3 valid ones kept
+    assert a.n_pairs("m") == 3   # the malformed row was dropped, the 3 valid ones kept
+    # 3 disjoint folds over 3 rows → one row in each
+    assert all(len(a.observe("m", 99, random.Random(0), fold=k)) == 1 for k in (0, 1, 2))
 
 
 # ── angle 2: statistical edge cases ──────────────────────────────────────────

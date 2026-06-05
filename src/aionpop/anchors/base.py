@@ -24,9 +24,12 @@ class Anchor(ABC):
 
     @abstractmethod
     def observe(
-        self, mechanism_id: str, n_units: int, rng: random.Random, perturbed: bool = False
+        self, mechanism_id: str, n_units: int, rng: random.Random, fold: int = 0
     ) -> List[Pair]:
-        """Paired outcomes for one mechanism. `perturbed=True` = held-out / perturbed DGP."""
+        """Paired outcomes for one mechanism on an independent data fold.
+
+        fold 0 = screen, 1 = confirm, 2 = replicate. Folds are disjoint, so screen
+        and confirm never share data (no screen/confirm double-dipping)."""
 
     def true_effect(self, mechanism_id: str) -> Optional[float]:
         """Ground-truth mean effect, if known (synthetic only). None for real anchors —

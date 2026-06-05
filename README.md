@@ -4,6 +4,7 @@
 > and — the part everyone else skips — **certifies which improvements actually work
 > against an external anchor, instead of grading its own homework.**
 
+[![ci](https://github.com/EvXata/aion_self_org_self_edu_mas/actions/workflows/ci.yml/badge.svg)](https://github.com/EvXata/aion_self_org_self_edu_mas/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![promotions: external-anchor gated](https://img.shields.io/badge/promotions-external--anchor%20gated-blue)
 ![python](https://img.shields.io/badge/python-3.9%2B-blue)
@@ -51,19 +52,17 @@ Real output (the engine grades itself against planted ground truth, then **refus
 promote** because the demo anchor is synthetic — exactly the point):
 
 ```
-  mechanism                    measΔ     dz       p  scr cnf rep  CERT   trueΔ  gate
-  ------------------------------------------------------------------------------------
   mechanism                    measΔ     dz       p  scr cnf rep  CERT   stab  trueΔ  gate
   ------------------------------------------------------------------------------------
-  ecosystem_leverage          +0.392   0.47  0.0010   ✓   ✓   ✓   YES    100%  +0.40  ABSTAIN
-  micro_niche_finder          +0.264   0.31  0.0010   ✓   ✓   ✓   YES     90%  +0.28  ABSTAIN
-  demand_signal_aggregator    +0.178   0.21  0.0040   ✓   ✓   ✓   YES     85%  +0.20  ABSTAIN
-  bounded_competency          +0.137   0.16  0.0195   ✓   ✓   ·           45%  +0.16  ABSTAIN
-  marketplace                 +0.007   0.01  0.7123   ✓   ·   ·            0%  +0.00  ABSTAIN
-  unbounded_skill_gen         -0.318  -0.38  1.0000   ·   ·   ·            0%  -0.30  ABSTAIN
+  ecosystem_leverage          +0.404   0.47  0.0010   ✓   ✓   ✓   YES    100%  +0.40  ABSTAIN
+  micro_niche_finder          +0.308   0.36  0.0010   ✓   ✓   ✓   YES    100%  +0.28  ABSTAIN
+  demand_signal_aggregator    +0.199   0.23  0.0010   ✓   ✓   ✓   YES     80%  +0.20  ABSTAIN
+  bounded_competency          +0.174   0.20  0.0080   ✓   ✓   ✓   YES     65%  +0.16  ABSTAIN
+  marketplace                 +0.007   0.01  0.71     ✓   ·   ·            0%  +0.00  ABSTAIN
+  unbounded_skill_gen         -0.310  -0.36  1.0000   ·   ·   ·            0%  -0.30  ABSTAIN
   ------------------------------------------------------------------------------------
-  candidates=12  certified=3  promoted=0  seeds=20
-  vs ground truth → FDR=0.000 (target ≤ 0.05)  power=0.500
+  candidates=12  certified=4  promoted=0  seeds=20  (screen/confirm/replicate on 3 disjoint folds)
+  vs ground truth → FDR=0.000 (target ≤ 0.05)  power=0.667
   NOTE: synthetic anchor → certified mechanisms ABSTAIN (self-graded evidence is never promoted).
 ```
 

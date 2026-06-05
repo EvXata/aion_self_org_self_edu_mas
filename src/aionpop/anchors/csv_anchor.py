@@ -67,15 +67,13 @@ class CSVAnchor(Anchor):
         return len(self._by_mech.get(mechanism_id, []))
 
     def observe(
-        self, mechanism_id: str, n_units: int, rng: random.Random, perturbed: bool = False
+        self, mechanism_id: str, n_units: int, rng: random.Random, fold: int = 0
     ) -> List[Pair]:
         rows = self._by_mech.get(mechanism_id, [])
         if not rows:
             return []
-        # Deterministic split: even indices = primary, odd = held-out (replication).
-        primary = [p for i, p in enumerate(rows) if i % 2 == 0]
-        heldout = [p for i, p in enumerate(rows) if i % 2 == 1]
-        pool = heldout if perturbed else primary
+        # Disjoint 3-fold split by row index → screen(0)/confirm(1)/replicate(2) never overlap.
+        pool = [p for i, p in enumerate(rows) if i % 3 == (fold % 3)]
         if not pool:                       # too few rows to split — reuse all
             pool = rows
         return pool[:n_units] if n_units and n_units < len(pool) else pool
