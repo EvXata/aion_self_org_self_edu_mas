@@ -68,6 +68,9 @@ promote** because the demo anchor is synthetic — exactly the point):
 
 ## Bring your own anchor (the real value)
 
+**No data yet?** `aionpop init` writes a realistic sample anchor and certifies it — your first
+**PROMOTE** (a real external anchor, unlike the synthetic demo). Then point it at your own data:
+
 Each row of your CSV is one task/unit: the outcome **without** the mechanism and **with** it.
 
 ```csv

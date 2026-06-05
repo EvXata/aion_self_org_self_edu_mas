@@ -14,7 +14,7 @@ import sys
 import time
 from typing import Dict
 
-from aionpop import __version__, heartbeat, ingest, share
+from aionpop import __version__, heartbeat, ingest, init, share
 from aionpop.anchors.csv_anchor import CSVAnchor
 from aionpop.anchors.synthetic import SyntheticAnchor
 from aionpop.levers import SelfEduLevers, SelfOrgLevers, demo_mechanisms
@@ -270,6 +270,42 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_init(args: argparse.Namespace) -> int:
+    if args.source:
+        rows = ingest.read_rows(args.source)
+        if args.control_col and args.treatment_col:
+            pairs = ingest.ingest_wide(rows, args.mechanism_col, args.control_col, args.treatment_col)
+        elif args.variant_col and args.control and args.treatment and args.outcome_col:
+            pairs = ingest.ingest_long(rows, args.mechanism_col, args.variant_col,
+                                       args.control, args.treatment, args.outcome_col)
+        else:
+            print("error: with --source pick a mode (see `aionpop ingest -h`):\n"
+                  "  WIDE: --control-col C --treatment-col T\n"
+                  "  LONG: --variant-col V --control VAL --treatment VAL --outcome-col O",
+                  file=sys.stderr)
+            return 2
+        if not pairs:
+            print("error: produced 0 paired rows — check columns/values.", file=sys.stderr)
+            return 2
+        ingest.write(pairs, args.out)
+        print(f"ingested {args.source} → {args.out}")
+    else:
+        summ = init.make_sample(args.out)
+        print(f"wrote a sample fleet log → {args.out} "
+              f"({summ['total']} rows, {len(summ['by_mechanism'])} mechanisms). "
+              f"It's an EXTERNAL anchor, so certified mechanisms PROMOTE.")
+    anchor = CSVAnchor(args.out, name="my-data")
+    mech_ids = anchor.mechanisms() or []
+    mechanisms = {m: SelfOrgLevers() for m in mech_ids}
+    edu = SelfEduLevers(fdr_q=args.fdr, n_seeds=args.seeds)
+    run = run_population(anchor, mechanisms, edu, seed=args.seed,
+                         scenario="init", run_id="init", gate=AnchorGate(True))
+    print_run(run, show_truth=False)
+    _write_run(run)
+    print('next:  aionpop dashboard   ·   aionpop share   ·   aionpop feedback "..."')
+    return 0
+
+
 def cmd_version(_: argparse.Namespace) -> int:
     print(f"aionpop {__version__}")
     return 0
@@ -345,6 +381,21 @@ def build_parser() -> argparse.ArgumentParser:
     ig.add_argument("--treatment", help="LONG: variant value meaning with-change")
     ig.add_argument("--outcome-col", help="LONG: column with the outcome value")
     ig.set_defaults(func=cmd_ingest)
+
+    it = sub.add_parser("init", help="first CERTIFIED result — on a sample, or your own log")
+    it.add_argument("--out", default="outcomes.csv")
+    it.add_argument("--seed", type=int, default=42)
+    it.add_argument("--seeds", type=int, default=20)
+    it.add_argument("--fdr", type=float, default=0.05)
+    it.add_argument("--source", help="your raw log (omit → a realistic sample is generated)")
+    it.add_argument("--mechanism-col", default="mechanism_id")
+    it.add_argument("--control-col")
+    it.add_argument("--treatment-col")
+    it.add_argument("--variant-col")
+    it.add_argument("--control")
+    it.add_argument("--treatment")
+    it.add_argument("--outcome-col")
+    it.set_defaults(func=cmd_init)
 
     v = sub.add_parser("version", help="print version")
     v.set_defaults(func=cmd_version)

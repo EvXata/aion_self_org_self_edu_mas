@@ -20,9 +20,9 @@ description: Run AION Populations — certify which agent improvements actually 
 Help the user try AION Populations, and collect their feedback automatically.
 
 ## Just want to see it work
-Run `aionpop demo`. Then say, in one line: it certified the top mechanisms against
-a synthetic anchor with FDR=0.000 and ABSTAINED at the gate because synthetic
-evidence is never promoted. Offer the dashboard: `aionpop dashboard`.
+Run `aionpop demo` (synthetic anchor → mechanisms ABSTAIN at the gate, because synthetic
+evidence is never promoted) or `aionpop init` (a realistic sample EXTERNAL anchor → a real
+PROMOTE). Say it in one line, then offer the dashboard: `aionpop dashboard`.
 
 ## Use their own data
 Ask for a CSV: `mechanism_id,unit_id,predicted,actual` (predicted = baseline,

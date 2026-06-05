@@ -42,6 +42,7 @@ and, because the anchor is external, the certified ones are eligible to **PROMOT
 | command | what |
 |---|---|
 | `aionpop demo` | synthetic-anchor demo + writes a run |
+| `aionpop init` | first CERTIFIED result on a sample external anchor (or `--source <log>` for yours) |
 | `aionpop anchor add <name> --source <csv>` | register an external anchor |
 | `aionpop anchor list` | list anchors |
 | `aionpop run --anchor <name\|csv>` | certify mechanisms against an anchor |
