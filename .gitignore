@@ -1,0 +1,39 @@
+# ─────────────────────────────────────────────────────────────────────────
+# PII / private — these must NEVER enter the public repo (see SAFETY.md).
+# The private superset (aionpop-core) holds real data.
+# ─────────────────────────────────────────────────────────────────────────
+aionpop-core/
+closed/
+**/*_real_leads.csv
+**/*-LEDGER-*.csv
+**/*-TRANSACTIONS-*.csv
+**/*-JOURNAL-*.csv
+**/*OUTREACH*
+**/prediction-history/
+**/*.private.yaml
+**/*.private.py
+.env
+.env.*
+*.secret
+
+# runtime
+~/.aionpop/
+aionpop-run.json
+.aionpop/
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# os/editor
+.DS_Store
+.idea/
+.vscode/

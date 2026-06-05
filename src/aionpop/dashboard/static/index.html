@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AION Populations — control dashboard</title>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --line:#30363d; --ink:#e6edf3; --mut:#8b949e;
+          --ok:#3fb950; --warn:#d29922; --bad:#f85149; --acc:#58a6ff; }
+  * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--ink);
+      font:14px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+  header { padding:16px 22px; border-bottom:1px solid var(--line); display:flex;
+           align-items:baseline; gap:14px; }
+  header h1 { font-size:18px; margin:0; letter-spacing:.2px; }
+  header .tag { color:var(--mut); font-size:12px; }
+  nav { display:flex; gap:4px; padding:10px 18px; border-bottom:1px solid var(--line);
+        flex-wrap:wrap; }
+  nav button { background:transparent; color:var(--mut); border:1px solid transparent;
+               padding:7px 12px; border-radius:7px; cursor:pointer; font-size:13px; }
+  nav button.active { color:var(--ink); background:var(--panel); border-color:var(--line); }
+  main { padding:22px; max-width:1080px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+          padding:16px 18px; margin-bottom:16px; }
+  .card h2 { margin:0 0 4px; font-size:15px; } .card p { color:var(--mut); margin:.3em 0; }
+  .kpi { display:flex; gap:26px; flex-wrap:wrap; margin:10px 0 2px; }
+  .kpi b { display:block; font-size:22px; } .kpi span { color:var(--mut); font-size:12px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
+  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { color:var(--mut); font-weight:600; }
+  .yes { color:var(--ok); font-weight:700; } .no { color:var(--mut); }
+  .promote { color:var(--ok); } .abstain { color:var(--warn); }
+  .pos { color:var(--ok); } .neg { color:var(--bad); }
+  .lever { display:flex; justify-content:space-between; border-bottom:1px solid var(--line); padding:7px 0; }
+  .lever small { color:var(--mut); } .hidden { display:none; }
+  code { background:#0d1117; border:1px solid var(--line); border-radius:5px; padding:1px 5px; }
+  .pill { font-size:11px; border:1px solid var(--line); border-radius:20px; padding:2px 9px; color:var(--mut); }
+</style>
+</head>
+<body>
+<header>
+  <h1>AION Populations</h1>
+  <span class="tag">self-organizing · self-educating agent populations · <span class="pill">anchor-gated</span></span>
+</header>
+<nav id="nav">
+  <button data-s="run" class="active">① Running Populations</button>
+  <button data-s="org">② Self-Organization</button>
+  <button data-s="edu">③ Self-Education</button>
+  <button data-s="set">④ Settings</button>
+  <button data-s="soc">⑤ Social</button>
+</nav>
+<main>
+  <section id="s-run">
+    <div class="card">
+      <h2>Latest run</h2>
+      <div class="kpi" id="kpi"></div>
+      <p id="anchor-note"></p>
+    </div>
+    <div class="card">
+      <h2>Certified catalog</h2>
+      <p>A mechanism is promoted only if it survives screen → confirm → replicate <b>and</b> the anchor is external.</p>
+      <table id="verdicts"><thead><tr>
+        <th>mechanism</th><th>meas Δ</th><th>dz</th><th>p</th>
+        <th>scr</th><th>cnf</th><th>rep</th><th>certified</th><th>stab</th><th>true Δ</th><th>gate</th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+  <section id="s-org" class="hidden"><div class="card">
+    <h2>② Self-Organization levers</h2>
+    <p>How the population builds and reshapes itself. Each lever shows a historical prior — never a substitute for certifying against your anchor.</p>
+    <div class="lever"><span>cull_fraction / tournament_k / mutation σ</span><small>selection pressure</small></div>
+    <div class="lever"><span>signal_discovery (p≈0.03)</span><small>children invent derived features</small></div>
+    <div class="lever"><span>signal_marketplace</span><small>prior: ~0% delta — often decorative</small></div>
+    <div class="lever"><span>diverse_goals (19 types)</span><small>prior: Ecosystem Leverage +208%…+228%</small></div>
+    <div class="lever"><span>speciation / niching</span><small>anti-monoculture diversity</small></div>
+    <div class="lever"><span>peer voting → spawn-by-demand</span><small>prior: saturated — tune value, not voting</small></div>
+  </div></section>
+
+  <section id="s-edu" class="hidden"><div class="card">
+    <h2>③ Self-Education levers <span class="pill">the differentiator</span></h2>
+    <p>How the population <b>honestly</b> learns what works.</p>
+    <div class="lever"><span>FDR q (Benjamini-Hochberg)</span><small id="edu-q"></small></div>
+    <div class="lever"><span>paired-permutation test</span><small id="edu-perm"></small></div>
+    <div class="lever"><span>replicate on perturbed / held-out DGP</span><small>sign must hold out-of-sample</small></div>
+    <div class="lever"><span>anchor-gate (Huang-gate)</span><small id="edu-gate"></small></div>
+    <div class="lever"><span>≥30 seeds</span><small>single-seed “findings” are not findings</small></div>
+  </div></section>
+
+  <section id="s-set" class="hidden"><div class="card">
+    <h2>④ Settings</h2>
+    <p>The anchor is a required object: <code>aionpop anchor add my-ledger --source outcomes.csv</code></p>
+    <div class="lever"><span>active anchor</span><small id="set-anchor"></small></div>
+    <div class="lever"><span>external?</span><small id="set-ext"></small></div>
+    <div class="lever"><span>sandbox</span><small>static-scan + wall-clock timeout (on by default)</small></div>
+    <div class="lever"><span>adapters</span><small>claude-code · codex · cursor · ollama · accounting-notary (private)</small></div>
+  </div></section>
+
+  <section id="s-soc" class="hidden"><div class="card">
+    <h2>⑤ Social</h2>
+    <p>Share an <b>anchor-certified</b> result — not a self-graded number. That is what makes a share worth a click.</p>
+    <div class="lever"><span>Share this run</span><small><code>aionpop share</code> → standalone HTML + “External-Anchor Verified” badge</small></div>
+    <div class="lever"><span>Mechanism registry</span><small>mechanism → certified uplift (vs anchor X)</small></div>
+    <div class="lever"><span>Leaderboard</span><small>highest anchor-certified uplift</small></div>
+    <div class="lever"><span>Contribute a mechanism upstream</span><small>open mechanism → shared catalog</small></div>
+  </div></section>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+document.querySelectorAll('#nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#nav button').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  ['run','org','edu','set','soc'].forEach(s => $('#s-'+s).classList.toggle('hidden', s!==b.dataset.s));
+});
+fetch('/api/run').then(r => r.json()).then(d => {
+  if (d.error) { $('#kpi').innerHTML = '<span>'+d.error+'</span>'; return; }
+  const s = d.summary, a = d.anchor;
+  $('#kpi').innerHTML = [
+    ['candidates', s.n_candidates], ['certified', s.n_certified], ['promoted', s.n_promoted],
+    ['FDR vs truth', s.fdr_vs_truth==null?'n/a':s.fdr_vs_truth], ['power', s.power_vs_truth==null?'n/a':s.power_vs_truth],
+  ].map(([k,v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
+  $('#anchor-note').innerHTML = a.external
+    ? `Anchor <code>${a.name}</code> is external — certified mechanisms can be promoted.`
+    : `Anchor <code>${a.name}</code> is <b>not external</b> (synthetic) → certified mechanisms ABSTAIN. Self-graded evidence is never promoted.`;
+  const tb = $('#verdicts tbody');
+  tb.innerHTML = d.verdicts.map(v => {
+    const f = b => b ? '<span class="yes">✓</span>' : '<span class="no">·</span>';
+    const sign = x => x>0?'pos':(x<0?'neg':'');
+    return `<tr>
+      <td>${v.mech_id}</td>
+      <td class="${sign(v.measured_effect)}">${v.measured_effect>0?'+':''}${v.measured_effect}</td>
+      <td>${v.dz}</td><td>${v.p}</td>
+      <td>${f(v.screened)}</td><td>${f(v.confirmed)}</td><td>${f(v.replicated)}</td>
+      <td>${v.certified?'<span class="yes">YES</span>':'<span class="no">—</span>'}</td>
+      <td>${v.seed_stability==null?'':Math.round(v.seed_stability*100)+'%'}</td>
+      <td>${v.true_effect==null?'':(v.true_effect>0?'+':'')+v.true_effect}</td>
+      <td class="${v.gate==='PROMOTE'?'promote':'abstain'}">${v.gate||''}</td>
+    </tr>`;
+  }).join('');
+  $('#edu-q').textContent = 'q = ' + s.q;
+  $('#edu-perm').textContent = (d.edu_levers?.n_permutations||'') + ' permutations';
+  $('#edu-gate').textContent = d.edu_levers?.anchor_gate_on ? 'ON (default)' : 'OFF — not recommended';
+  $('#set-anchor').textContent = a.name;
+  $('#set-ext').textContent = a.external ? 'yes — promotions allowed' : 'no (synthetic) — promotions abstain';
+});
+</script>
+</body>
+</html>

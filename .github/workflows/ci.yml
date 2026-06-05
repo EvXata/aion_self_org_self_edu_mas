@@ -1,0 +1,29 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: install
+        run: pip install -e '.[dev]'
+      - name: unit tests
+        run: pytest -q
+      - name: demo smoke (engine must certify the planted winners with FDR control)
+        run: |
+          out=$(aionpop demo)
+          echo "$out"
+          echo "$out" | grep -q "FDR=0.000" || (echo "::error::demo lost FDR control" && exit 1)
+          echo "$out" | grep -q "ecosystem_leverage" || (echo "::error::demo missing winner" && exit 1)

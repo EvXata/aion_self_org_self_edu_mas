@@ -1,0 +1,11 @@
+{
+  "name": "aionpop",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "postCreateCommand": "pip install -e '.[dev]'",
+  "postAttachCommand": "aionpop demo",
+  "forwardPorts": [8092],
+  "portsAttributes": { "8092": { "label": "AION Populations dashboard", "onAutoForward": "openBrowser" } },
+  "customizations": {
+    "vscode": { "extensions": ["ms-python.python"] }
+  }
+}

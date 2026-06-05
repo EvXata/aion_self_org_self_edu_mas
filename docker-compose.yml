@@ -1,0 +1,11 @@
+services:
+  aionpop:
+    build: .
+    ports:
+      - "8092:8092"
+    command: sh -c "aionpop demo && aionpop dashboard --port 8092"
+    # Mount your real outcomes read-only and run against them instead of the demo:
+    #   volumes:
+    #     - ./outcomes.csv:/app/outcomes.csv:ro
+    #   command: sh -c "aionpop anchor add ledger --source /app/outcomes.csv &&
+    #                   aionpop run --anchor ledger && aionpop dashboard --port 8092"

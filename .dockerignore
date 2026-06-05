@@ -1,0 +1,15 @@
+# Keep the build context small and private.
+.git/
+.github/
+**/__pycache__/
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+.DS_Store
+# never ship data / runtime state into an image
+~/.aionpop/
+aionpop-run.json
+**/*_real_leads.csv
+**/*-LEDGER-*.csv
+**/*-TRANSACTIONS-*.csv
