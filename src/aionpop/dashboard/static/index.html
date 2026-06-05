@@ -51,9 +51,14 @@
 <main>
   <section id="s-run">
     <div class="card">
-      <h2>Latest run</h2>
+      <h2>Runs <span class="mut" style="font-weight:400">— click to load</span></h2>
+      <div id="runs" class="mut">loading…</div>
+    </div>
+    <div class="card">
+      <h2 id="run-title">Latest run</h2>
       <div class="kpi" id="kpi"></div>
       <p id="anchor-note"></p>
+      <p id="signed" class="mut"></p>
     </div>
     <div class="card">
       <h2>Certified catalog</h2>
@@ -111,37 +116,51 @@ document.querySelectorAll('#nav button').forEach(b => b.onclick = () => {
   b.classList.add('active');
   ['run','org','edu','set','soc'].forEach(s => $('#s-'+s).classList.toggle('hidden', s!==b.dataset.s));
 });
-fetch('/api/run').then(r => r.json()).then(d => {
-  if (d.error) { $('#kpi').innerHTML = '<span>'+d.error+'</span>'; return; }
-  const s = d.summary, a = d.anchor;
-  $('#kpi').innerHTML = [
-    ['candidates', s.n_candidates], ['certified', s.n_certified], ['promoted', s.n_promoted],
-    ['FDR vs truth', s.fdr_vs_truth==null?'n/a':s.fdr_vs_truth], ['power', s.power_vs_truth==null?'n/a':s.power_vs_truth],
-  ].map(([k,v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
-  $('#anchor-note').innerHTML = a.external
-    ? `Anchor <code>${a.name}</code> is external — certified mechanisms can be promoted.`
-    : `Anchor <code>${a.name}</code> is <b>not external</b> (synthetic) → certified mechanisms ABSTAIN. Self-graded evidence is never promoted.`;
-  const tb = $('#verdicts tbody');
-  tb.innerHTML = d.verdicts.map(v => {
-    const f = b => b ? '<span class="yes">✓</span>' : '<span class="no">·</span>';
-    const sign = x => x>0?'pos':(x<0?'neg':'');
-    return `<tr>
-      <td>${v.mech_id}</td>
-      <td class="${sign(v.measured_effect)}">${v.measured_effect>0?'+':''}${v.measured_effect}</td>
-      <td>${v.dz}</td><td>${v.p}</td>
-      <td>${f(v.screened)}</td><td>${f(v.confirmed)}</td><td>${f(v.replicated)}</td>
-      <td>${v.certified?'<span class="yes">YES</span>':'<span class="no">—</span>'}</td>
-      <td>${v.seed_stability==null?'':Math.round(v.seed_stability*100)+'%'}</td>
-      <td>${v.true_effect==null?'':(v.true_effect>0?'+':'')+v.true_effect}</td>
-      <td class="${v.gate==='PROMOTE'?'promote':'abstain'}">${v.gate||''}</td>
-    </tr>`;
-  }).join('');
-  $('#edu-q').textContent = 'q = ' + s.q;
-  $('#edu-perm').textContent = (d.edu_levers?.n_permutations||'') + ' permutations';
-  $('#edu-gate').textContent = d.edu_levers?.anchor_gate_on ? 'ON (default)' : 'OFF — not recommended';
-  $('#set-anchor').textContent = a.name;
-  $('#set-ext').textContent = a.external ? 'yes — promotions allowed' : 'no (synthetic) — promotions abstain';
+function loadRun(id){
+  fetch('/api/run'+(id?('?id='+encodeURIComponent(id)):'')).then(r => r.json()).then(d => {
+    if (d.error) { $('#kpi').innerHTML = '<span>'+d.error+'</span>'; return; }
+    const s = d.summary, a = d.anchor;
+    $('#run-title').textContent = 'Run: ' + (d.run_id || 'latest');
+    $('#kpi').innerHTML = [
+      ['candidates', s.n_candidates], ['certified', s.n_certified], ['promoted', s.n_promoted],
+      ['FDR vs truth', s.fdr_vs_truth==null?'n/a':s.fdr_vs_truth], ['power', s.power_vs_truth==null?'n/a':s.power_vs_truth],
+    ].map(([k,v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
+    $('#anchor-note').innerHTML = a.external
+      ? `Anchor <code>${a.name}</code> is external — certified mechanisms can be promoted.`
+      : `Anchor <code>${a.name}</code> is <b>not external</b> (synthetic) → certified mechanisms ABSTAIN. Self-graded evidence is never promoted.`;
+    const sig = d._sig;
+    $('#signed').innerHTML = sig
+      ? `signed (ed25519) <code>${sig.pubkey.slice(0,16)}…</code> · verify: <code>aionpop verify &lt;run.json&gt;</code>`
+      : '';
+    const tb = $('#verdicts tbody');
+    tb.innerHTML = d.verdicts.map(v => {
+      const f = b => b ? '<span class="yes">✓</span>' : '<span class="no">·</span>';
+      const sign = x => x>0?'pos':(x<0?'neg':'');
+      return `<tr>
+        <td>${v.mech_id}</td>
+        <td class="${sign(v.measured_effect)}">${v.measured_effect>0?'+':''}${v.measured_effect}</td>
+        <td>${v.dz}</td><td>${v.p}</td>
+        <td>${f(v.screened)}</td><td>${f(v.confirmed)}</td><td>${f(v.replicated)}</td>
+        <td>${v.certified?'<span class="yes">YES</span>':'<span class="no">—</span>'}</td>
+        <td>${v.seed_stability==null?'':Math.round(v.seed_stability*100)+'%'}</td>
+        <td>${v.true_effect==null?'':(v.true_effect>0?'+':'')+v.true_effect}</td>
+        <td class="${v.gate==='PROMOTE'?'promote':'abstain'}">${v.gate||''}</td>
+      </tr>`;
+    }).join('');
+    $('#edu-q').textContent = 'q = ' + s.q;
+    $('#edu-perm').textContent = (d.edu_levers?.n_permutations||'') + ' permutations';
+    $('#edu-gate').textContent = d.edu_levers?.anchor_gate_on ? 'ON (default)' : 'OFF — not recommended';
+    $('#set-anchor').textContent = a.name;
+    $('#set-ext').textContent = a.external ? 'yes — promotions allowed' : 'no (synthetic) — promotions abstain';
+  });
+}
+fetch('/api/runs').then(r => r.json()).then(rs => {
+  $('#runs').innerHTML = (rs && rs.length)
+    ? rs.slice().reverse().map(r => `<a href="#" data-id="${r.run_id}" style="margin-right:14px">${r.run_id} <small>(cert ${r.summary?r.summary.n_certified:'?'})</small></a>`).join('')
+    : 'no runs yet — run <code>aionpop init</code>';
+  document.querySelectorAll('#runs a').forEach(el => el.onclick = e => { e.preventDefault(); loadRun(el.dataset.id); });
 });
+loadRun();
 </script>
 </body>
 </html>

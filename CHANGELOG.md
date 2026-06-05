@@ -13,5 +13,8 @@ First public release.
 - **Onboarding:** `aionpop ingest` turns a raw task log (wide or long) into the engine-ready paired CSV.
 - **Feedback loop:** `aionpop feedback` (token-free GitHub-issue URL), `aionpop heartbeat`
   (local + optional sink), `aionpop claude-init` (Claude Code skill that files feedback automatically).
+- **Verifiable:** every run is signed (pure-Python Ed25519, stdlib); `aionpop verify` proves a
+  run/card wasn't edited — the "External-Anchor Verified" badge is checkable, not a sticker.
+- **Dashboard:** run history (pick any past run) + the signed status, alongside the certified catalog.
 - **Deploy:** one-command `aion-populations-setup.py`, Dockerfile/compose, devcontainer (Codespaces).
-- 42 tests; demo holds FDR = 0.000.
+- 50 tests; demo holds FDR = 0.000.

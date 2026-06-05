@@ -14,7 +14,7 @@ import sys
 import time
 from typing import Dict
 
-from aionpop import __version__, heartbeat, ingest, init, share
+from aionpop import __version__, heartbeat, ingest, init, share, signing
 from aionpop.anchors.csv_anchor import CSVAnchor
 from aionpop.anchors.synthetic import SyntheticAnchor
 from aionpop.levers import SelfEduLevers, SelfOrgLevers, demo_mechanisms
@@ -84,12 +84,13 @@ def print_run(run: RunResult, show_truth: bool) -> None:
 
 def _write_run(run: RunResult) -> str:
     os.makedirs(RUNS_DIR, exist_ok=True)
+    d = signing.sign_run(run.to_dict())          # sign once → verifiable badge
     path = os.path.join(RUNS_DIR, f"{run.run_id}.json")
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(run.to_dict(), f, indent=2)
+        json.dump(d, f, indent=2)
     # also drop a copy in cwd for the dashboard's convenience
     with open("aionpop-run.json", "w", encoding="utf-8") as f:
-        json.dump(run.to_dict(), f, indent=2)
+        json.dump(d, f, indent=2)
     return path
 
 
@@ -306,6 +307,39 @@ def cmd_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_verify(args: argparse.Namespace) -> int:
+    path = args.path
+    if not os.path.exists(path):
+        print(f"error: not found: {path}", file=sys.stderr)
+        return 2
+    if path.endswith((".html", ".htm")):
+        import re
+        text = open(path, encoding="utf-8").read()
+        m = re.search(r'id="aionpop-run"[^>]*>(.*?)</script>', text, re.S)
+        if not m:
+            print("error: this card has no embedded run to verify.", file=sys.stderr)
+            return 2
+        d = json.loads(m.group(1).replace("<\\/", "</"))
+    else:
+        with open(path, encoding="utf-8") as f:
+            d = json.load(f)
+    state, pk = signing.verify_run(d)
+    summ = d.get("summary") or {}
+    ext = (d.get("anchor") or {}).get("external")
+    if state == signing.VALID:
+        print(f"✓ VALID signature · key {pk[:16]}…")
+        print(f"  certified={summ.get('n_certified')} promoted={summ.get('n_promoted')} "
+              f"external_anchor={ext}")
+        if ext and (summ.get("n_promoted") or 0) > 0:
+            print("  → External-Anchor Verified (signed, untampered).")
+        return 0
+    if state == signing.UNSIGNED:
+        print("• UNSIGNED — older run, or signing was unavailable.")
+        return 1
+    print("✗ INVALID — the run was modified after it was signed.", file=sys.stderr)
+    return 1
+
+
 def cmd_version(_: argparse.Namespace) -> int:
     print(f"aionpop {__version__}")
     return 0
@@ -396,6 +430,10 @@ def build_parser() -> argparse.ArgumentParser:
     it.add_argument("--treatment")
     it.add_argument("--outcome-col")
     it.set_defaults(func=cmd_init)
+
+    vr = sub.add_parser("verify", help="verify a run/card signature (External-Anchor Verified)")
+    vr.add_argument("path", help="path to a run json or a share .html card")
+    vr.set_defaults(func=cmd_verify)
 
     v = sub.add_parser("version", help="print version")
     v.set_defaults(func=cmd_version)

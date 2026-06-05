@@ -57,6 +57,12 @@ def render(run: dict) -> str:
     fdr = s.get("fdr_vs_truth")
     fdr_line = "" if fdr is None else f"<span>FDR vs truth <b>{fdr}</b></span>"
     seeds = s.get("n_seeds")
+    sig = run.get("_sig")
+    signed = (f'<div class="mut" style="margin-top:8px">signed (ed25519) '
+              f'<code>{html.escape(sig["pubkey"][:16])}…</code> — verify: '
+              f'<code>aionpop verify &lt;this file&gt;</code></div>') if sig else ""
+    embed = ('<script type="application/json" id="aionpop-run">'
+             + json.dumps(run).replace("</", "<\\/") + "</script>") if sig else ""
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AION Populations — certified run</title>
@@ -82,9 +88,10 @@ def render(run: dict) -> str:
  </div>
  <table><thead><tr><th>mechanism</th><th>meas Δ</th><th>p</th><th>cert</th><th>seed&nbsp;stability</th><th>gate</th></tr></thead>
  <tbody>{rows}</tbody></table>
+ {signed}
  <footer>Certified against an external anchor — not self-graded.
    Made with <a href="https://github.com/EvXata/aion_self_org_self_edu_mas">AION Populations</a>.</footer>
-</div></body></html>"""
+</div>{embed}</body></html>"""
 
 
 def render_file(run_path: str, out_path: str) -> str:

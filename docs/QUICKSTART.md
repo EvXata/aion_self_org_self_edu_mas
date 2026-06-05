@@ -47,7 +47,8 @@ and, because the anchor is external, the certified ones are eligible to **PROMOT
 | `aionpop anchor list` | list anchors |
 | `aionpop run --anchor <name\|csv>` | certify mechanisms against an anchor |
 | `aionpop dashboard [--port 8092] [--host 0.0.0.0]` | serve the 5-section dashboard |
-| `aionpop share [run] [--out card.html]` | render a run as a shareable HTML card |
+| `aionpop share [run] [--out card.html]` | render a run as a shareable (signed) HTML card |
+| `aionpop verify <run.json\|card.html>` | check a run's signature — External-Anchor Verified |
 | `aionpop version` | version |
 
 Flags on `run`: `--fdr 0.05`, `--seeds 30`, `--seed 42`, `--scenario economy`, `--no-gate` (discouraged).

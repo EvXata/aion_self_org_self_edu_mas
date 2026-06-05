@@ -28,6 +28,14 @@ def _latest_run() -> Optional[dict]:
         return json.load(f)
 
 
+def _run_by_id(rid: str) -> Optional[dict]:
+    p = os.path.join(RUNS_DIR, f"{rid}.json")
+    if rid and os.path.exists(p):
+        with open(p, encoding="utf-8") as f:
+            return json.load(f)
+    return None
+
+
 def _list_runs() -> list:
     out = []
     for p in sorted(glob.glob(os.path.join(RUNS_DIR, "*.json"))):
@@ -53,14 +61,18 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         self._send(json.dumps(obj).encode(), "application/json; charset=utf-8", code)
 
     def do_GET(self) -> None:  # noqa: N802
-        if self.path in ("/", "/index.html"):
+        from urllib.parse import parse_qs, urlparse
+        parsed = urlparse(self.path)
+        path = parsed.path
+        if path in ("/", "/index.html"):
             with open(os.path.join(STATIC, "index.html"), "rb") as f:
                 self._send(f.read(), "text/html; charset=utf-8")
-        elif self.path == "/api/run":
-            run = _latest_run()
+        elif path == "/api/run":
+            rid = (parse_qs(parsed.query).get("id") or [None])[0]
+            run = _run_by_id(rid) if rid else _latest_run()
             self._json(run if run else {"error": "no runs yet — run `aionpop demo`"},
                        200 if run else 404)
-        elif self.path == "/api/runs":
+        elif path == "/api/runs":
             self._json(_list_runs())
         else:
             self._json({"error": "not found"}, 404)
