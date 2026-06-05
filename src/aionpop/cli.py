@@ -11,9 +11,10 @@ import argparse
 import json
 import os
 import sys
+import time
 from typing import Dict
 
-from aionpop import __version__, share
+from aionpop import __version__, heartbeat, share
 from aionpop.anchors.csv_anchor import CSVAnchor
 from aionpop.anchors.synthetic import SyntheticAnchor
 from aionpop.levers import SelfEduLevers, SelfOrgLevers, demo_mechanisms
@@ -192,6 +193,54 @@ def cmd_share(args: argparse.Namespace) -> int:
     return 0
 
 
+def _print_beat(rec: dict) -> None:
+    run = rec.get("run") or {}
+    sink = rec.get("_sink")
+    line = f"♥ {rec['ts']}  v{rec['version']}"
+    if run:
+        line += f"  last-run={run.get('run_id')} certified={run.get('n_certified')}"
+    if rec.get("note"):
+        line += f"  note={rec['note']!r}"
+    if sink:
+        line += f"  sink={'ok' if sink['ok'] else 'FAIL:' + sink['msg']}"
+    print(line)
+
+
+def cmd_heartbeat(args: argparse.Namespace) -> int:
+    if args.loop:
+        print(f"heartbeat every {args.loop}s → {heartbeat.HEARTBEATS}  (Ctrl-C to stop)")
+        try:
+            while True:
+                _print_beat(heartbeat.beat(note=args.note, url=args.url))
+                time.sleep(args.loop)
+        except KeyboardInterrupt:
+            print("\nstopped.")
+            return 0
+    _print_beat(heartbeat.beat(note=args.note, url=args.url))
+    print(f"  logged → {heartbeat.HEARTBEATS}")
+    if not (args.url or os.environ.get("AIONPOP_FEEDBACK_URL")):
+        print("  (local only — set AIONPOP_FEEDBACK_URL or --url to send beats to the repo/owner)")
+    return 0
+
+
+def cmd_feedback(args: argparse.Namespace) -> int:
+    url = heartbeat.issue_url(args.message)
+    print("Send feedback to the repo (opens a prefilled GitHub issue — no token needed):")
+    print(f"  {url}")
+    if args.open:
+        import webbrowser
+        webbrowser.open(url)
+    return 0
+
+
+def cmd_claude_init(args: argparse.Namespace) -> int:
+    from aionpop import claude_init
+    for p in claude_init.write(args.dir):
+        print(f"wrote {p}")
+    print('Open this folder in Claude Code and say: "use aion populations".')
+    return 0
+
+
 def cmd_version(_: argparse.Namespace) -> int:
     print(f"aionpop {__version__}")
     return 0
@@ -240,6 +289,21 @@ def build_parser() -> argparse.ArgumentParser:
     sh.add_argument("run", nargs="?", help="run id or path to run json (default: latest)")
     sh.add_argument("--out", default="aionpop-share.html")
     sh.set_defaults(func=cmd_share)
+
+    hb = sub.add_parser("heartbeat", help="record a status beat (+ optional POST to a sink)")
+    hb.add_argument("--note", help="free-text note to attach")
+    hb.add_argument("--url", help="sink URL to POST to (else $AIONPOP_FEEDBACK_URL)")
+    hb.add_argument("--loop", type=int, metavar="SECONDS", help="repeat every N seconds")
+    hb.set_defaults(func=cmd_heartbeat)
+
+    fb = sub.add_parser("feedback", help="send feedback to the repo (token-free issue URL)")
+    fb.add_argument("message")
+    fb.add_argument("--open", action="store_true", help="open the issue URL in a browser")
+    fb.set_defaults(func=cmd_feedback)
+
+    ci = sub.add_parser("claude-init", help="install the Claude Code skill into ./.claude")
+    ci.add_argument("--dir", default=".", help="project dir (default: current)")
+    ci.set_defaults(func=cmd_claude_init)
 
     v = sub.add_parser("version", help="print version")
     v.set_defaults(func=cmd_version)

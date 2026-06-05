@@ -78,14 +78,15 @@ def main():
     if _run([vpy, "-m", "aionpop", "demo"]).returncode != 0:
         sys.exit("Demo failed to run.")
 
-    # 4. dashboard
-    print(f"\n[4/4] starting the dashboard → http://localhost:{PORT}")
-    print("      (your browser will open; press Ctrl-C here to stop)\n")
-    try:
-        webbrowser.open(f"http://localhost:{PORT}")
-    except Exception:
-        pass
-    _run([vpy, "-m", "aionpop", "dashboard", "--port", str(PORT)])
+    # 4. deploy the Claude Code skill + open one-click feedback (auto-feedback via the agent)
+    print("\n[4/4] deploying the Claude Code skill + feedback")
+    _run([vpy, "-m", "aionpop", "claude-init"])
+    _run([vpy, "-m", "aionpop", "feedback", "tried the demo", "--open"])
+
+    print("\nDone ✓")
+    print(f"  - Dashboard:       {vpy} -m aionpop dashboard")
+    print('  - In Claude Code:  open this folder and say "use aion populations".')
+    print("  - Feedback opened in your browser - one click to send it.")
 
 
 if __name__ == "__main__":
