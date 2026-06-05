@@ -63,6 +63,9 @@ class CSVAnchor(Anchor):
     def mechanisms(self) -> Optional[List[str]]:
         return list(self._by_mech)
 
+    def n_pairs(self, mechanism_id: str) -> int:
+        return len(self._by_mech.get(mechanism_id, []))
+
     def observe(
         self, mechanism_id: str, n_units: int, rng: random.Random, perturbed: bool = False
     ) -> List[Pair]:

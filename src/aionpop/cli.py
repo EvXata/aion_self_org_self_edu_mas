@@ -14,7 +14,7 @@ import sys
 import time
 from typing import Dict
 
-from aionpop import __version__, heartbeat, share
+from aionpop import __version__, heartbeat, ingest, share
 from aionpop.anchors.csv_anchor import CSVAnchor
 from aionpop.anchors.synthetic import SyntheticAnchor
 from aionpop.levers import SelfEduLevers, SelfOrgLevers, demo_mechanisms
@@ -152,6 +152,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         print("error: anchor exposes no mechanism ids (need a 'mechanism_id' column).",
               file=sys.stderr)
         return 2
+    thin = [m for m in mech_ids if getattr(anchor, "n_pairs", lambda _m: 99)(m) < 30]
+    if thin:
+        print(f"  [warn] underpowered (<30 paired rows): {', '.join(thin)} — "
+              f"gather more data; certification for these is weak.", file=sys.stderr)
     mechanisms = {m: SelfOrgLevers() for m in mech_ids}   # levers unknown for a real anchor
     edu = SelfEduLevers(fdr_q=args.fdr, n_seeds=args.seeds, anchor_gate_on=not args.no_gate)
     gate = AnchorGate(enabled=not args.no_gate)
@@ -241,6 +245,31 @@ def cmd_claude_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_ingest(args: argparse.Namespace) -> int:
+    rows = ingest.read_rows(args.source)
+    if args.control_col and args.treatment_col:
+        pairs = ingest.ingest_wide(rows, args.mechanism_col, args.control_col, args.treatment_col)
+    elif args.variant_col and args.control and args.treatment and args.outcome_col:
+        pairs = ingest.ingest_long(rows, args.mechanism_col, args.variant_col,
+                                   args.control, args.treatment, args.outcome_col)
+    else:
+        print("error: pick a mode —\n"
+              "  WIDE (both outcomes in one row):  --control-col C --treatment-col T\n"
+              "  LONG (one row per task + a flag):  --variant-col V --control VAL "
+              "--treatment VAL --outcome-col O", file=sys.stderr)
+        return 2
+    if not pairs:
+        print("error: produced 0 paired rows — check the column names/values.", file=sys.stderr)
+        return 2
+    summ = ingest.write(pairs, args.out)
+    print(f"wrote {summ['out']}: {summ['total']} paired rows across "
+          f"{len(summ['by_mechanism'])} mechanism(s)")
+    for w in summ["warnings"]:
+        print(f"  [warn] {w}", file=sys.stderr)
+    print(f"next:  aionpop anchor add mine --source {args.out}  &&  aionpop run --anchor mine")
+    return 0
+
+
 def cmd_version(_: argparse.Namespace) -> int:
     print(f"aionpop {__version__}")
     return 0
@@ -304,6 +333,18 @@ def build_parser() -> argparse.ArgumentParser:
     ci = sub.add_parser("claude-init", help="install the Claude Code skill into ./.claude")
     ci.add_argument("--dir", default=".", help="project dir (default: current)")
     ci.set_defaults(func=cmd_claude_init)
+
+    ig = sub.add_parser("ingest", help="turn a raw task log into the engine-ready paired CSV")
+    ig.add_argument("--source", required=True, help="raw CSV (your task log)")
+    ig.add_argument("--out", default="outcomes.csv")
+    ig.add_argument("--mechanism-col", default="mechanism_id")
+    ig.add_argument("--control-col", help="WIDE: column with the baseline outcome")
+    ig.add_argument("--treatment-col", help="WIDE: column with the with-change outcome")
+    ig.add_argument("--variant-col", help="LONG: column flagging control vs treatment")
+    ig.add_argument("--control", help="LONG: variant value meaning baseline")
+    ig.add_argument("--treatment", help="LONG: variant value meaning with-change")
+    ig.add_argument("--outcome-col", help="LONG: column with the outcome value")
+    ig.set_defaults(func=cmd_ingest)
 
     v = sub.add_parser("version", help="print version")
     v.set_defaults(func=cmd_version)
