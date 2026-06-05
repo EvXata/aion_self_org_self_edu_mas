@@ -31,7 +31,7 @@ FDR-controlled, cross-validated check against YOUR anchor.** That gate is on by 
 
 | ① Running Populations | ② Self-Organization | ③ Self-Education | ④ Settings | ⑤ Social |
 |---|---|---|---|---|
-| launch certification runs *(live evolving populations: [roadmap](docs/MIGRATION.md))* | selection, mutation, speciation, signal-discovery, marketplaces | the certification harness (multi-seed FDR + permutation + replication) + the anchor-gate | wire your own anchor, adapters, safety limits | `aionpop share` → standalone **anchor-certified** HTML card |
+| run history + certified catalog *(live evolving populations: [roadmap](docs/MIGRATION.md))* | selection, mutation, speciation, signal-discovery, marketplaces | the certification harness (multi-seed FDR + permutation + replication) + the anchor-gate | wire your own anchor, adapters, safety limits | `aionpop share` → **signed**, standalone card (`aionpop verify`) |
 
 ## 60-second demo (no setup, no anchor)
 
@@ -66,6 +66,10 @@ promote** because the demo anchor is synthetic — exactly the point):
   NOTE: synthetic anchor → certified mechanisms ABSTAIN (self-graded evidence is never promoted).
 ```
 
+**Verify it yourself (30s):** `pip install -e ".[dev]" && pytest -q` → 50 passing. The demo holds
+FDR = 0.000 on every run. Every result is **signed** — `aionpop verify <run.json>` proves it
+wasn't edited (the "External-Anchor Verified" badge is real, not a sticker).
+
 ## Bring your own anchor (the real value)
 
 **No data yet?** `aionpop init` writes a realistic sample anchor and certifies it — your first
@@ -86,6 +90,18 @@ aionpop run --anchor my-ledger --seeds 30 --fdr 0.05
 # → a ranked, FDR-certified list of which mechanisms actually improved YOUR outcomes
 ```
 
+**Only have raw task logs, not a paired CSV?** `aionpop ingest` is the bridge — it turns a raw log
+into the engine-ready format above (`pass`/`yes`/`✓` → 1, `fail`/`no` → 0). Two shapes:
+
+```bash
+# WIDE — one row already holds both outcomes:
+aionpop ingest --source log.csv --out outcomes.csv --control-col before --treatment-col after
+# LONG — one row per task plus a variant flag:
+aionpop ingest --source log.csv --out outcomes.csv --variant-col phase --control off --treatment on --outcome-col reconciled
+```
+
+`run` flags any mechanism with **< 30 paired rows** as underpowered — too thin to certify honestly.
+
 For an **agent fleet** (e.g. an accounting/notary back-office of agents), "outcome" is your
 real signal — did the ledger reconcile, did the notarization verify, error rate, hours-to-close.
 That is the external anchor the whole method needs; AION Populations wires every "improvement" to it.
@@ -98,10 +114,26 @@ That is the external anchor the whole method needs; AION Populations wires every
 ## How it works (one paragraph)
 
 `levers.py` defines self-organization + self-education settings; a *mechanism* is one setting.
-`certify.py` runs **screen → confirm → replicate**: keep mechanisms whose mean uplift clears a
-screen, confirm with a paired-permutation test under Benjamini-Hochberg FDR control, and require
-the sign to hold on a perturbed / held-out draw. `safety/anchor_gate.py` then refuses to promote
+`certify.py` runs **screen → confirm → replicate** on **3 disjoint data folds** (screen and confirm
+never share rows — no double-dipping): keep mechanisms whose mean uplift clears a screen, confirm
+with a paired-permutation test under Benjamini-Hochberg FDR control, and require the sign to hold
+on a held-out fold. `safety/anchor_gate.py` then refuses to promote
 anything not certified **against an external anchor**. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Feedback — sent, and received
+
+A self-improving tool needs its own feedback loop — and it round-trips end to end:
+
+```bash
+aionpop feedback "what worked / what broke"      # opens a prefilled GitHub issue — one click, no token
+aionpop heartbeat --note "tried the demo"        # logs a local status beat to ~/.aionpop/heartbeats.jsonl
+aionpop heartbeat --url "$AIONPOP_FEEDBACK_URL"  # …and POSTs that beat (version, platform, last run) to a sink
+aionpop claude-init                              # installs a Claude Code skill that files feedback for you
+```
+
+- **Sent → received.** `feedback` files a labelled issue on this repo (Issues are on); `heartbeat --url`
+  POSTs a JSON beat to any sink you control and reports `sink=ok` on success.
+- **Private by default.** With no `--url` / `$AIONPOP_FEEDBACK_URL`, nothing leaves your machine.
 
 ## Safety
 
