@@ -8,6 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![promotions: external-anchor gated](https://img.shields.io/badge/promotions-external--anchor%20gated-blue)
 ![python](https://img.shields.io/badge/python-3.9%2B-blue)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/EvXata/aion_self_org_self_edu_mas)
 **Sandbox-by-default · anchor-gated-by-default · [read SAFETY.md](SAFETY.md) before you scale.**
 
 **Consciousness-OS** brings **one** agent to life. **AION Populations is the society of them.**
@@ -106,10 +107,12 @@ For an **agent fleet** (e.g. an accounting/notary back-office of agents), "outco
 real signal — did the ledger reconcile, did the notarization verify, error rate, hours-to-close.
 That is the external anchor the whole method needs; AION Populations wires every "improvement" to it.
 
-## Get started two ways
+## Get started
 
-- **One file (fastest, non-technical):** download [`aion-populations-setup.py`](aion-populations-setup.py) → `python3 aion-populations-setup.py`.
-- **GitHub template:** click **"Use this template" → Codespaces**, then `aionpop demo`. Or `docker compose up`.
+- **One file:** `curl -fsSL https://raw.githubusercontent.com/EvXata/aion_self_org_self_edu_mas/main/aion-populations-setup.py | python3` (or download [`aion-populations-setup.py`](aion-populations-setup.py) and run it).
+- **pip, no clone:** `pipx install "git+https://github.com/EvXata/aion_self_org_self_edu_mas.git"` → `aionpop demo`.
+- **Cloud:** [Open in Codespaces](https://codespaces.new/EvXata/aion_self_org_self_edu_mas) — the demo runs on attach.
+- **Docker:** `git clone … && docker compose up`.
 
 ## How it works (one paragraph)
 

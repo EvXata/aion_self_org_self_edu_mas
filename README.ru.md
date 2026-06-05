@@ -43,8 +43,11 @@ aionpop run --anchor my-ledger --seeds 30 --fdr 0.05
 ли леджер, прошла ли нотаризация, доля ошибок, время закрытия. Это и есть внешний якорь,
 которого требует метод; AION Populations привязывает к нему каждое «улучшение».
 
-## Под ключ
-**Use this template → Codespaces**, затем `aionpop demo`. Или `docker compose up`.
+## Поставить
+- **Один файл:** `curl -fsSL https://raw.githubusercontent.com/EvXata/aion_self_org_self_edu_mas/main/aion-populations-setup.py | python3`
+- **pip без клона:** `pipx install "git+https://github.com/EvXata/aion_self_org_self_edu_mas.git"` → `aionpop demo`
+- **Облако:** [Open in Codespaces](https://codespaces.new/EvXata/aion_self_org_self_edu_mas) — демо запустится само.
+- **Docker:** `git clone … && docker compose up`.
 
 ## Лицензия
 MIT (движок). Проприетарный каталог механизмов и любые данные владельца — в отдельном приватном

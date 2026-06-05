@@ -12,6 +12,13 @@ python -m pip install -U pip     # ensure pip ≥ 21.3 (older pip can't do `-e`)
 pip install -e .                 # add [dev] for pytest
 ```
 
+Or install **without cloning** (straight from GitHub):
+```bash
+pipx install "git+https://github.com/EvXata/aion_self_org_self_edu_mas.git"   # isolated CLI
+# or: pip install "git+https://github.com/EvXata/aion_self_org_self_edu_mas.git"
+```
+Or run it **in the cloud, one click**: [Open in Codespaces](https://codespaces.new/EvXata/aion_self_org_self_edu_mas).
+
 ## 1. See it work (60s, no anchor)
 ```bash
 aionpop demo
