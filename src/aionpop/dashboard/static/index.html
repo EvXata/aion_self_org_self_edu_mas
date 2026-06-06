@@ -3,164 +3,133 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>AION Populations — control dashboard</title>
+<title>AION Populations — find your market & write the ads</title>
 <style>
-  :root { --bg:#0d1117; --panel:#161b22; --line:#30363d; --ink:#e6edf3; --mut:#8b949e;
-          --ok:#3fb950; --warn:#d29922; --bad:#f85149; --acc:#58a6ff; }
-  * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--ink);
-      font:14px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
-  header { padding:16px 22px; border-bottom:1px solid var(--line); display:flex;
-           align-items:baseline; gap:14px; }
-  header h1 { font-size:18px; margin:0; letter-spacing:.2px; }
-  header .tag { color:var(--mut); font-size:12px; }
-  nav { display:flex; gap:4px; padding:10px 18px; border-bottom:1px solid var(--line);
-        flex-wrap:wrap; }
-  nav button { background:transparent; color:var(--mut); border:1px solid transparent;
-               padding:7px 12px; border-radius:7px; cursor:pointer; font-size:13px; }
-  nav button.active { color:var(--ink); background:var(--panel); border-color:var(--line); }
-  main { padding:22px; max-width:1080px; }
-  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px;
-          padding:16px 18px; margin-bottom:16px; }
-  .card h2 { margin:0 0 4px; font-size:15px; } .card p { color:var(--mut); margin:.3em 0; }
-  .kpi { display:flex; gap:26px; flex-wrap:wrap; margin:10px 0 2px; }
-  .kpi b { display:block; font-size:22px; } .kpi span { color:var(--mut); font-size:12px; }
-  table { width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
-  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
-  th { color:var(--mut); font-weight:600; }
-  .yes { color:var(--ok); font-weight:700; } .no { color:var(--mut); }
-  .promote { color:var(--ok); } .abstain { color:var(--warn); }
-  .pos { color:var(--ok); } .neg { color:var(--bad); }
-  .lever { display:flex; justify-content:space-between; border-bottom:1px solid var(--line); padding:7px 0; }
-  .lever small { color:var(--mut); } .hidden { display:none; }
-  code { background:#0d1117; border:1px solid var(--line); border-radius:5px; padding:1px 5px; }
-  .pill { font-size:11px; border:1px solid var(--line); border-radius:20px; padding:2px 9px; color:var(--mut); }
+  :root{--bg:#0b0f17;--panel:#141b26;--panel2:#0f1622;--line:#243042;--ink:#e6edf3;
+        --mut:#8b97a8;--ok:#3fb950;--acc:#58a6ff;--gold:#e3b341;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14.5px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  header{padding:16px 24px;border-bottom:1px solid var(--line)}
+  header h1{font-size:19px;margin:0}
+  header p{margin:4px 0 0;color:var(--mut);font-size:13px}
+  .wrap{max-width:1020px;margin:0 auto;padding:20px 24px 60px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px}
+  .brief{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .brief .full{grid-column:1/3}
+  label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin-bottom:5px}
+  input,select{width:100%;background:#0b1119;border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit}
+  .go{margin-top:14px;background:var(--acc);color:#04122b;border:0;border-radius:10px;padding:12px 22px;font-weight:800;font-size:15px;cursor:pointer}
+  .go:hover{filter:brightness(1.08)}
+  .runs{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+  .chip{background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:5px 11px;font-size:12px;cursor:pointer}
+  .chip.sel{border-color:var(--acc);color:#fff}
+  .prog{display:flex;align-items:center;gap:12px}
+  .track{flex:1;height:12px;background:#0b1119;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .track>i{display:block;height:100%;background:linear-gradient(90deg,#1f6feb,#58a6ff);transition:width .3s}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:var(--mut);margin:2px 0 12px}
+  .move{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .move .n{color:var(--acc);font-weight:800}
+  .ad{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:10px;padding:14px 16px;margin-bottom:12px}
+  .ad .hl{font-size:16px;font-weight:700;margin-bottom:6px}
+  .ad .bd{color:var(--ink);margin-bottom:8px}
+  .ad .cta{display:inline-block;background:#1f2a3a;border:1px solid var(--line);border-radius:8px;padding:6px 12px;color:var(--acc);font-weight:600}
+  .ad .meta{color:var(--mut);font-size:11.5px;margin-top:9px}
+  .wins{display:grid;grid-template-columns:1fr 1fr;gap:14px 28px}
+  .win b{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
+  .lv{display:flex;align-items:center;gap:8px;margin-top:5px;font-size:12.5px}
+  .lv .bar{flex:1;height:9px;background:#0b1119;border-radius:5px;overflow:hidden}
+  .lv .bar>i{display:block;height:100%;background:var(--ok)}
+  .lv .nm{width:190px} .lv .v{width:42px;color:var(--mut);text-align:right;font-variant-numeric:tabular-nums}
+  .again{background:var(--ok);color:#03140a;border:0;border-radius:10px;padding:11px 18px;font-weight:800;cursor:pointer}
+  .note{color:var(--mut);font-size:12px;margin-top:8px}
+  .empty{color:var(--mut)}
+  b.hot{color:var(--ink)}
 </style>
 </head>
 <body>
 <header>
-  <h1>AION Populations</h1>
-  <span class="tag">self-organizing · self-educating agent populations · <span class="pill">anchor-gated</span></span>
+  <h1>Find your market &amp; write the ads</h1>
+  <p>Describe your product. A population explores every go-to-market move — who · where · what you say · the offer · the format — and hands back the best strategic moves + ready-to-use ads. Each run gets smarter.</p>
 </header>
-<nav id="nav">
-  <button data-s="run" class="active">① Running Populations</button>
-  <button data-s="org">② Self-Organization</button>
-  <button data-s="edu">③ Self-Education</button>
-  <button data-s="set">④ Settings</button>
-  <button data-s="soc">⑤ Social</button>
-</nav>
-<main>
-  <section id="s-run">
-    <div class="card">
-      <h2>Runs <span class="mut" style="font-weight:400">— click to load</span></h2>
-      <div id="runs" class="mut">loading…</div>
+<div class="wrap">
+
+  <div class="card">
+    <div class="brief">
+      <div><label>Product</label><input id="product" value="EcoPlaster"></div>
+      <div><label>Region / market</label><input id="region" value="Europe"></div>
+      <div class="full"><label>One line — what is it?</label><input id="pitch" value="breathable, non-toxic, carbon-neutral eco-plaster"></div>
+      <div><label>Goal</label><select id="goal">
+        <option value="awareness">Awareness — they don't know me yet</option>
+        <option value="leads">Leads — get qualified interest</option>
+        <option value="sales">Sales — convert to orders</option></select></div>
+      <div><label>Depth (how thoroughly to explore)</label><select id="gens">
+        <option value="12">Quick (~6s)</option><option value="16" selected>Standard (~8s)</option><option value="28">Deep (~14s)</option></select></div>
     </div>
-    <div class="card">
-      <h2 id="run-title">Latest run</h2>
-      <div class="kpi" id="kpi"></div>
-      <p id="anchor-note"></p>
-      <p id="signed" class="mut"></p>
-    </div>
-    <div class="card">
-      <h2>Certified catalog</h2>
-      <p>A mechanism is promoted only if it survives screen → confirm → replicate <b>and</b> the anchor is external.</p>
-      <table id="verdicts"><thead><tr>
-        <th>mechanism</th><th>meas Δ</th><th>dz</th><th>p</th>
-        <th>scr</th><th>cnf</th><th>rep</th><th>certified</th><th>stab</th><th>true Δ</th><th>gate</th>
-      </tr></thead><tbody></tbody></table>
-    </div>
-  </section>
+    <button class="go" id="go">▶ Explore the market</button>
+    <div class="runs" id="runs"></div>
+  </div>
 
-  <section id="s-org" class="hidden"><div class="card">
-    <h2>② Self-Organization levers</h2>
-    <p>How the population builds and reshapes itself. Each lever shows a historical prior — never a substitute for certifying against your anchor.</p>
-    <div class="lever"><span>cull_fraction / tournament_k / mutation σ</span><small>selection pressure</small></div>
-    <div class="lever"><span>signal_discovery (p≈0.03)</span><small>children invent derived features</small></div>
-    <div class="lever"><span>signal_marketplace</span><small>prior: ~0% delta — often decorative</small></div>
-    <div class="lever"><span>diverse_goals (19 types)</span><small>prior: Ecosystem Leverage +208%…+228%</small></div>
-    <div class="lever"><span>speciation / niching</span><small>anti-monoculture diversity</small></div>
-    <div class="lever"><span>peer voting → spawn-by-demand</span><small>prior: saturated — tune value, not voting</small></div>
-  </div></section>
+  <div id="out"><div class="card empty">Fill in your product above and hit <b>Explore the market</b>.</div></div>
+</div>
 
-  <section id="s-edu" class="hidden"><div class="card">
-    <h2>③ Self-Education levers <span class="pill">the differentiator</span></h2>
-    <p>How the population <b>honestly</b> learns what works.</p>
-    <div class="lever"><span>FDR q (Benjamini-Hochberg)</span><small id="edu-q"></small></div>
-    <div class="lever"><span>paired-permutation test</span><small id="edu-perm"></small></div>
-    <div class="lever"><span>replicate on perturbed / held-out DGP</span><small>sign must hold out-of-sample</small></div>
-    <div class="lever"><span>anchor-gate (Huang-gate)</span><small id="edu-gate"></small></div>
-    <div class="lever"><span>≥30 seeds</span><small>single-seed “findings” are not findings</small></div>
-  </div></section>
-
-  <section id="s-set" class="hidden"><div class="card">
-    <h2>④ Settings</h2>
-    <p>The anchor is a required object: <code>aionpop anchor add my-ledger --source outcomes.csv</code></p>
-    <div class="lever"><span>active anchor</span><small id="set-anchor"></small></div>
-    <div class="lever"><span>external?</span><small id="set-ext"></small></div>
-    <div class="lever"><span>sandbox</span><small>static-scan + wall-clock timeout (on by default)</small></div>
-    <div class="lever"><span>adapters</span><small>claude-code · codex · cursor · ollama · accounting-notary (private)</small></div>
-  </div></section>
-
-  <section id="s-soc" class="hidden"><div class="card">
-    <h2>⑤ Social</h2>
-    <p>Share an <b>anchor-certified</b> result — not a self-graded number. That is what makes a share worth a click.</p>
-    <div class="lever"><span>Share this run</span><small><code>aionpop share</code> → standalone HTML + “External-Anchor Verified” badge</small></div>
-    <div class="lever"><span>Mechanism registry</span><small>mechanism → certified uplift (vs anchor X)</small></div>
-    <div class="lever"><span>Leaderboard</span><small>highest anchor-certified uplift</small></div>
-    <div class="lever"><span>Contribute a mechanism upstream</span><small>open mechanism → shared catalog</small></div>
-  </div></section>
-</main>
 <script>
-const $ = s => document.querySelector(s);
-document.querySelectorAll('#nav button').forEach(b => b.onclick = () => {
-  document.querySelectorAll('#nav button').forEach(x => x.classList.remove('active'));
-  b.classList.add('active');
-  ['run','org','edu','set','soc'].forEach(s => $('#s-'+s).classList.toggle('hidden', s!==b.dataset.s));
-});
-function loadRun(id){
-  fetch('/api/run'+(id?('?id='+encodeURIComponent(id)):'')).then(r => r.json()).then(d => {
-    if (d.error) { $('#kpi').innerHTML = '<span>'+d.error+'</span>'; return; }
-    const s = d.summary, a = d.anchor;
-    $('#run-title').textContent = 'Run: ' + (d.run_id || 'latest');
-    $('#kpi').innerHTML = [
-      ['candidates', s.n_candidates], ['certified', s.n_certified], ['promoted', s.n_promoted],
-      ['FDR vs truth', s.fdr_vs_truth==null?'n/a':s.fdr_vs_truth], ['power', s.power_vs_truth==null?'n/a':s.power_vs_truth],
-    ].map(([k,v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
-    $('#anchor-note').innerHTML = a.external
-      ? `Anchor <code>${a.name}</code> is external — certified mechanisms can be promoted.`
-      : `Anchor <code>${a.name}</code> is <b>not external</b> (synthetic) → certified mechanisms ABSTAIN. Self-graded evidence is never promoted.`;
-    const sig = d._sig;
-    $('#signed').innerHTML = sig
-      ? `signed (ed25519) <code>${sig.pubkey.slice(0,16)}…</code> · verify: <code>aionpop verify &lt;run.json&gt;</code>`
-      : '';
-    const tb = $('#verdicts tbody');
-    tb.innerHTML = d.verdicts.map(v => {
-      const f = b => b ? '<span class="yes">✓</span>' : '<span class="no">·</span>';
-      const sign = x => x>0?'pos':(x<0?'neg':'');
-      return `<tr>
-        <td>${v.mech_id}</td>
-        <td class="${sign(v.measured_effect)}">${v.measured_effect>0?'+':''}${v.measured_effect}</td>
-        <td>${v.dz}</td><td>${v.p}</td>
-        <td>${f(v.screened)}</td><td>${f(v.confirmed)}</td><td>${f(v.replicated)}</td>
-        <td>${v.certified?'<span class="yes">YES</span>':'<span class="no">—</span>'}</td>
-        <td>${v.seed_stability==null?'':Math.round(v.seed_stability*100)+'%'}</td>
-        <td>${v.true_effect==null?'':(v.true_effect>0?'+':'')+v.true_effect}</td>
-        <td class="${v.gate==='PROMOTE'?'promote':'abstain'}">${v.gate||''}</td>
-      </tr>`;
-    }).join('');
-    $('#edu-q').textContent = 'q = ' + s.q;
-    $('#edu-perm').textContent = (d.edu_levers?.n_permutations||'') + ' permutations';
-    $('#edu-gate').textContent = d.edu_levers?.anchor_gate_on ? 'ON (default)' : 'OFF — not recommended';
-    $('#set-anchor').textContent = a.name;
-    $('#set-ext').textContent = a.external ? 'yes — promotions allowed' : 'no (synthetic) — promotions abstain';
-  });
+const $=s=>document.querySelector(s);
+let selected=null, lastP=-1;
+
+async function refreshRuns(){
+  let xs=[]; try{ xs=await (await fetch('/api/runs')).json(); }catch(e){return;}
+  if(!selected && xs.length) selected=xs[xs.length-1].id;
+  $('#runs').innerHTML = xs.slice().reverse().map(x=>
+    `<span class="chip ${x.id===selected?'sel':''}" data-id="${x.id}">${x.product} · ${x.region} ${x.status==='running'?'⏳':'✓'}${x.run_index?(' · run '+x.run_index):''}</span>`).join('');
+  document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{selected=c.dataset.id;lastP=-1;refreshRuns();render();});
 }
-fetch('/api/runs').then(r => r.json()).then(rs => {
-  $('#runs').innerHTML = (rs && rs.length)
-    ? rs.slice().reverse().map(r => `<a href="#" data-id="${r.run_id}" style="margin-right:14px">${r.run_id} <small>(cert ${r.summary?r.summary.n_certified:'?'})</small></a>`).join('')
-    : 'no runs yet — run <code>aionpop init</code>';
-  document.querySelectorAll('#runs a').forEach(el => el.onclick = e => { e.preventDefault(); loadRun(el.dataset.id); });
-});
-loadRun();
+
+function moveHTML(m,i){ return `<div class="move"><span class="n">${i+1}</span><span>${m.replace(/\*\*(.+?)\*\*/g,'<b class="hot">$1</b>')}</span></div>`; }
+function adHTML(a){ return `<div class="ad"><div class="hl">${a.headline}</div><div class="bd">${a.body}</div>
+  <span class="cta">${a.cta}</span><div class="meta">${a.channel} · ${a.segment} · ${a.angle} · offer: ${a.offer} · format: ${a.format} · fit ${a.score}</div></div>`; }
+function winHTML(label,levels){ const mx=levels[0]?levels[0][1]:1;
+  return `<div class="win"><b>${label}</b>${levels.slice(0,4).map(([nm,v])=>
+    `<div class="lv"><span class="nm">${nm}</span><span class="bar"><i style="width:${Math.max(4,v/mx*100)}%"></i></span><span class="v">${v}</span></div>`).join('')}</div>`; }
+
+async function render(){
+  if(!selected) return;
+  let d; try{ d=await (await fetch('/api/run?id='+encodeURIComponent(selected))).json(); }catch(e){return;}
+  if(d.error){ $('#out').innerHTML='<div class="card empty">'+d.error+'</div>'; return; }
+  const prog=d.progress||[], last=prog[prog.length-1]||{};
+  const sig=prog.length+(d.results?1e6:0); if(sig===lastP) return; lastP=sig;
+
+  if(!d.results){
+    const w = last.gen? (last.gen/last.generations*100):4;
+    $('#out').innerHTML = `<div class="card"><h2>Exploring the go-to-market space…</h2>
+      <div class="prog"><div class="track"><i style="width:${w}%"></i></div>
+      <span style="color:var(--mut);font-size:12px">gen ${last.gen||0}/${last.generations||'?'} · ${last.explored||0} of ${last.space||0} combinations · best fit ${last.best||0}</span></div></div>`;
+    return;
+  }
+  const r=d.results, L=r.learnings;
+  $('#out').innerHTML = `
+    <div class="card"><h2>🎯 Top strategic moves — ${d.brief.product} in ${d.brief.region}</h2>
+      ${r.moves.map(moveHTML).join('')}
+      <div class="note">Explored ${r.explored} of ${r.space} possible moves · run #${r.run_index} (memory makes each run sharper).</div></div>
+    <div class="card"><h2>✍️ Ready-to-use ads (top moves)</h2>${r.ads.map(adHTML).join('')}</div>
+    <div class="card"><h2>📊 What wins</h2><div class="wins">
+      ${winHTML('Who (segment)',L.segment)}${winHTML('Where (channel)',L.channel)}
+      ${winHTML('Message (angle)',L.angle)}${winHTML('The ask (offer)',L.offer)}
+      ${winHTML('Format',L.format)}</div></div>
+    <div class="card"><button class="again" id="again">🔁 Run again — it gets smarter</button>
+      <div class="note">Run the top ads for real, then come back: feed clicks/replies and the same population will certify which moves truly work and refine the rest.</div></div>`;
+  $('#again').onclick = ()=>launch(d.brief);
+}
+
+async function launch(brief){
+  try{
+    const r=await (await fetch('/api/run/new',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(brief)})).json();
+    selected=r.id; lastP=-1; refreshRuns(); render();
+  }catch(e){}
+}
+$('#go').onclick=()=>launch({product:$('#product').value,region:$('#region').value,pitch:$('#pitch').value,goal:$('#goal').value,generations:+$('#gens').value});
+
+refreshRuns(); render();
+setInterval(()=>{refreshRuns();render();},700);
 </script>
 </body>
 </html>
