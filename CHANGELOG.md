@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.2.0 — 2026-06-06
 
 - **Factorial certification (`aionpop experiment`):** when a mechanism decomposes into factors,
   certify factor **main effects** AND **2-way interactions** (HC3-robust regression + Benjamini-Hochberg

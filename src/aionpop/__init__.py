@@ -16,7 +16,7 @@ data live in a separate private repo (`aionpop-core`) and are not distributed.
 """
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from aionpop.levers import SelfOrgLevers, SelfEduLevers
 from aionpop.certify import (
