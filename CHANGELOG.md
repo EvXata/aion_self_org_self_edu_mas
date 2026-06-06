@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **Factorial certification (`aionpop experiment`):** when a mechanism decomposes into factors,
+  certify factor **main effects** AND **2-way interactions** (HC3-robust regression + Benjamini-Hochberg
+  FDR), graded against planted ground truth; plus **metric validation** (which KPIs track value vs.
+  plausible-but-useless ones). Prebuilt designs `saas_growth` / `b2b_outreach`; `--new` scaffolds your
+  own; `--calibrate` runs the A/A + power self-check. Stdlib-only; per-combo catalog reuses the existing
+  `certify`. Distills the research lineage's v29 multi-lever + interaction harness. +10 tests (60 total).
+
 ## v0.1.0 — 2026-06-05
 
 First public release.
