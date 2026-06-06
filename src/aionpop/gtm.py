@@ -1,15 +1,17 @@
 """Factorial GTM explorer — the consumer engine.
 
-You have a product but the market doesn't know it yet. You describe it; a
-population explores the full factorial of go-to-market moves —
+You have a product the market doesn't know yet. You describe it; a population
+explores the full factorial of go-to-market moves —
   WHO (segment) × WHERE (channel) × WHAT YOU SAY (angle) × THE ASK (offer) × FORM (format)
-— evolves toward the moves that resonate, and hands back: ranked strategic moves +
-ready-to-use ad copy + what-wins learnings. It accumulates evidence across runs,
-so every new run is sharper (memory persisted per product).
+— and returns ranked strategic moves + ready-to-use ad copy + what-wins learnings.
+
+It improves with every run: it remembers what it has tried (per product), keeps
+exploring NEW corners of the space (UCB-style), accumulates evidence, and reports
+exactly what changed since last run (coverage, confidence, shifted moves).
 
 Honesty: with no real market data, scores are a PRIOR model — best hypotheses to
-test. Feed real outcomes (clicks/replies) back in and the same engine certifies
-which moves actually work. Stdlib only.
+test. Feed real outcomes (clicks/replies) back and the same engine certifies which
+moves actually work. Stdlib only.
 """
 from __future__ import annotations
 
@@ -18,7 +20,7 @@ import math
 import os
 import random
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional
 
 MEM_DIR = os.path.expanduser("~/.aionpop/gtm_memory")
@@ -36,8 +38,6 @@ FACTORS: Dict[str, List[str]] = {
                 "short video", "comparison table", "customer testimonial"],
 }
 
-# Gentle priors for an awareness/B2B push (used to seed the latent reality + the
-# starting search). Levels not listed start neutral.
 _PRIOR = {
     "segment": {"architects & specifiers": .9, "eco-home builders": .8, "green developers": .6},
     "channel": {"LinkedIn": .8, "trade press / PR": .9, "industry trade shows": .7},
@@ -49,7 +49,7 @@ _PRIOR = {
 _HEADLINE = {
     "carbon-neutral / sustainability": "{seg_title}: {product} — carbon-neutral walls, zero compromise.",
     "healthy & non-toxic": "{seg_title}: {product} — breathable, non-toxic walls people live better in.",
-    "natural aesthetic": "{seg_title}: the natural finish clients ask for — {product}.",
+    "natural aesthetic": "{seg_title}: the natural finish your clients ask for — {product}.",
     "durability & performance": "{seg_title}: {product} — eco that outlasts the alternative.",
     "lifetime cost savings": "{seg_title}: {product} pays back over the building's life.",
     "ESG / regulation": "{seg_title}: hit your ESG targets with {product}.",
@@ -69,14 +69,11 @@ def _key(brief: dict) -> str:
 
 
 def _latent(brief: dict) -> Dict[str, Dict[str, float]]:
-    """The hidden 'reality' for this brief (priors + brief-seeded variation)."""
     rng = random.Random(abs(hash(_key(brief))) % (2 ** 31))
     eff = {}
     for f, levels in FACTORS.items():
-        eff[f] = {}
-        for lv in levels:
-            base = _PRIOR.get(f, {}).get(lv, 0.3)
-            eff[f][lv] = max(0.0, min(1.0, base + rng.gauss(0, 0.18)))
+        eff[f] = {lv: max(0.0, min(1.0, _PRIOR.get(f, {}).get(lv, 0.3) + rng.gauss(0, 0.18)))
+                  for lv in levels}
     return eff
 
 
@@ -85,13 +82,21 @@ def _resonance(combo: Dict[str, str], eff: Dict[str, Dict[str, float]]) -> float
 
 
 def _load_mem(key: str) -> dict:
+    mem = {"runs": 0, "sums": {f: {} for f in FACTORS}, "counts": {f: {} for f in FACTORS},
+           "explored": [], "history": []}
     p = os.path.join(MEM_DIR, key + ".json")
     if os.path.exists(p):
         try:
-            return json.load(open(p, encoding="utf-8"))
+            mem.update(json.load(open(p, encoding="utf-8")))
         except Exception:
             pass
-    return {"runs": 0, "sums": {f: {} for f in FACTORS}, "counts": {f: {} for f in FACTORS}}
+    mem.setdefault("explored", [])
+    mem.setdefault("history", [])
+    for k in ("sums", "counts"):
+        mem.setdefault(k, {})
+        for f in FACTORS:
+            mem[k].setdefault(f, {})
+    return mem
 
 
 def _save_mem(key: str, mem: dict) -> None:
@@ -116,17 +121,16 @@ def assemble_ad(product: str, combo: Dict[str, str]) -> dict:
         product=product, seg_title=seg_title)
     body = (f"{product} for {seg}. Lead with {combo['angle']}. "
             f"Run it as a {combo['format']} on {combo['channel']}.")
-    return {**combo, "headline": headline,
-            "body": body.replace("Lead", "Lead"), "cta": _CTA.get(combo["offer"], "Learn more →")}
+    return {**combo, "headline": headline, "body": body, "cta": _CTA.get(combo["offer"], "Learn more →")}
 
 
 def _moves(est: Dict[str, Dict[str, float]], product: str, region: str) -> List[str]:
     def top(f, n=2):
         return [lv for lv, _ in sorted(est[f].items(), key=lambda x: -x[1])[:n]]
-    seg, ch, ang, off, fmt = (top("segment"), top("channel"), top("angle", 1), top("offer", 1), top("format", 1))
+    seg, ch, ang, off, fmt = top("segment"), top("channel"), top("angle", 1), top("offer", 1), top("format", 1)
     return [
         f"Target **{seg[0]}** first (then {seg[1]}) — highest predicted resonance in {region}.",
-        f"Lead every message with the **{ang[0]}** angle — it's your strongest hook.",
+        f"Lead every message with the **{ang[0]}** angle — your strongest hook.",
         f"Put budget on **{ch[0]}** and **{ch[1]}**; deprioritize the weakest channels.",
         f"Make the ask a **{off[0]}** — lowest-friction way to convert cold prospects.",
         f"Ship creative as a **{fmt[0]}** — best-performing format for this audience.",
@@ -145,21 +149,27 @@ class GtmSettings:
 
 def explore(brief: dict, s: GtmSettings, on_generation: Callable[[dict], None],
             should_stop: Optional[Callable[[], bool]] = None) -> dict:
-    """Evolutionary search over the GTM factorial. Returns the results dict."""
     key = _key(brief)
     latent = _latent(brief)
     mem = _load_mem(key)
-    est = _estimates(mem)                       # priors from past runs (self-improvement)
-    rng = random.Random(s.seed + mem["runs"])
+    est = _estimates(mem)
+    counts = mem["counts"]
+    rng = random.Random(s.seed + mem["runs"])               # different search every run
     space = 1
     for f in FACTORS:
         space *= len(FACTORS[f])
+    explored = {tuple(x) for x in mem["explored"]}
+    prev_explored = len(explored)
 
-    def biased_combo():                          # start search near what we already believe works
-        return {f: max(FACTORS[f], key=lambda lv: est[f][lv] + rng.gauss(0, 0.3)) for f in FACTORS}
+    def ucb_level(f):                                        # exploit estimate + explore the under-tested
+        best, bv = FACTORS[f][0], -9.0
+        for lv in FACTORS[f]:
+            v = est[f][lv] + 0.5 / math.sqrt(1 + counts[f].get(lv, 0)) + rng.gauss(0, 0.25)
+            if v > bv:
+                bv, best = v, lv
+        return best
 
-    pop = [biased_combo() for _ in range(s.pop)]
-    explored = set()
+    pop = [{f: ucb_level(f) for f in FACTORS} for _ in range(s.pop)]
     run_sums = {f: {} for f in FACTORS}
     run_counts = {f: {} for f in FACTORS}
 
@@ -169,67 +179,80 @@ def explore(brief: dict, s: GtmSettings, on_generation: Callable[[dict], None],
             r = _resonance(c, latent) + rng.gauss(0, s.noise)
             scored.append((r, c))
             explored.add(tuple(c[f] for f in FACTORS))
-            for f in FACTORS:                    # accumulate evidence per level
+            for f in FACTORS:
                 run_sums[f][c[f]] = run_sums[f].get(c[f], 0.0) + r
                 run_counts[f][c[f]] = run_counts[f].get(c[f], 0) + 1
         scored.sort(key=lambda x: -x[0])
         best_r, best_c = scored[0]
         mean_r = sum(x[0] for x in scored) / len(scored)
-        strong = sum(1 for r, _ in scored if r > mean_r + 0.05)
-
-        on_generation({
-            "gen": gen, "generations": s.generations,
-            "explored": len(explored), "space": space,
-            "best": round(best_r, 3), "mean": round(mean_r, 3), "strong": strong,
-            "best_combo": best_c,
-        })
+        on_generation({"gen": gen, "generations": s.generations, "explored": len(explored),
+                       "space": space, "best": round(best_r, 3), "mean": round(mean_r, 3),
+                       "strong": sum(1 for r, _ in scored if r > mean_r + 0.05), "best_combo": best_c})
         if should_stop and should_stop():
             break
-
         keep = max(4, s.pop // 3)
         elite = [c for _, c in scored[:keep]]
         nxt = list(elite)
         while len(nxt) < s.pop:
             a, b = rng.choice(elite), rng.choice(elite)
-            child = {f: (a[f] if rng.random() < 0.5 else b[f]) for f in FACTORS}   # crossover
-            if rng.random() < 0.3:                                                 # mutation
+            child = {f: (a[f] if rng.random() < 0.5 else b[f]) for f in FACTORS}
+            if rng.random() < 0.4:                          # mutation seeks new ground
                 f = rng.choice(list(FACTORS))
-                child[f] = rng.choice(FACTORS[f])
+                child[f] = ucb_level(f)
             nxt.append(child)
         pop = nxt
         if s.tick:
             time.sleep(s.tick)
 
-    # fold this run's evidence into persistent memory (self-improvement)
-    for f in FACTORS:
+    for f in FACTORS:                                        # fold this run's evidence into memory
         for lv in FACTORS[f]:
             if lv in run_counts[f]:
                 mem["sums"][f][lv] = mem["sums"][f].get(lv, 0.0) + run_sums[f][lv]
                 mem["counts"][f][lv] = mem["counts"][f].get(lv, 0) + run_counts[f][lv]
     mem["runs"] += 1
-    _save_mem(key, mem)
+    mem["explored"] = [list(x) for x in explored]
     est = _estimates(mem)
+    total_obs = sum(mem["counts"]["segment"].values())
+    coverage_pct = round(len(explored) / space * 100, 1)
 
-    # top distinct combos → ads
-    final = sorted(({_resonance(c, latent): c}.popitem() for c in pop), key=lambda x: -x[0])
+    ranked = sorted(pop, key=lambda c: -_resonance(c, latent))
     seen, ads = set(), []
     product = brief.get("product", "your product")
-    for r, c in final:
+    for c in ranked:
         sig = tuple(c[f] for f in FACTORS)
         if sig in seen:
             continue
         seen.add(sig)
         ad = assemble_ad(product, c)
-        ad["score"] = round(r, 3)
+        ad["score"] = round(_resonance(c, latent), 3)
         ads.append(ad)
         if len(ads) >= 3:
             break
 
-    learnings = {f: sorted(est[f].items(), key=lambda x: -x[1]) for f in FACTORS}
+    learnings = {f: [[lv, round(v, 3)] for lv, v in sorted(est[f].items(), key=lambda x: -x[1])]
+                 for f in FACTORS}
+    top_now = {f: learnings[f][0][0] for f in FACTORS}
+    best_score = ads[0]["score"] if ads else 0.0
+
+    delta = None
+    if mem["history"]:
+        prev = mem["history"][-1]
+        changes = [f"{f}: {prev['top'].get(f)} → {top_now[f]}"
+                   for f in FACTORS if prev["top"].get(f) != top_now[f]]
+        delta = {"new_combos": len(explored) - prev_explored,
+                 "coverage_pct": coverage_pct, "prev_coverage_pct": prev.get("coverage_pct", 0.0),
+                 "obs": total_obs, "prev_obs": prev.get("obs", 0),
+                 "best": best_score, "prev_best": prev.get("best", 0.0),
+                 "changes": changes}
+    mem["history"].append({"run": mem["runs"], "top": top_now,
+                           "coverage_pct": coverage_pct, "obs": total_obs, "best": best_score})
+    _save_mem(key, mem)
+
     return {
-        "run_index": mem["runs"],
-        "explored": len(explored), "space": space,
+        "run_index": mem["runs"], "explored": len(explored), "space": space,
+        "coverage_pct": coverage_pct, "total_obs": total_obs, "best_score": best_score,
+        "delta": delta,
         "moves": _moves(est, product, brief.get("region", "your market")),
         "ads": ads,
-        "learnings": {f: [[lv, round(v, 3)] for lv, v in learnings[f]] for f in FACTORS},
+        "learnings": learnings,
     }

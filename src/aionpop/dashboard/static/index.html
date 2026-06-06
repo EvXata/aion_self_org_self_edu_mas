@@ -105,18 +105,23 @@ async function render(){
       <span style="color:var(--mut);font-size:12px">gen ${last.gen||0}/${last.generations||'?'} · ${last.explored||0} of ${last.space||0} combinations · best fit ${last.best||0}</span></div></div>`;
     return;
   }
-  const r=d.results, L=r.learnings;
-  $('#out').innerHTML = `
+  const r=d.results, L=r.learnings, dl=r.delta;
+  const deltaCard = dl ? `<div class="card" style="border-left:3px solid var(--ok)"><h2>📈 What improved since last run</h2>
+      <div class="move"><span><b class="hot">+${dl.new_combos}</b> new combinations explored · coverage <b class="hot">${dl.prev_coverage_pct}% → ${dl.coverage_pct}%</b> of ${r.space}</span></div>
+      <div class="move"><span>Evidence <b class="hot">${dl.prev_obs} → ${dl.obs}</b> evaluations · best fit ${dl.prev_best} → <b class="hot">${dl.best}</b></span></div>
+      ${(dl.changes&&dl.changes.length) ? dl.changes.map(c=>`<div class="move"><span>↻ ${c}</span></div>`).join('') : '<div class="move"><span>✓ Top moves <b class="hot">confirmed</b> — now with more evidence and confidence.</span></div>'}
+    </div>` : '';
+  $('#out').innerHTML = deltaCard + `
     <div class="card"><h2>🎯 Top strategic moves — ${d.brief.product} in ${d.brief.region}</h2>
       ${r.moves.map(moveHTML).join('')}
-      <div class="note">Explored ${r.explored} of ${r.space} possible moves · run #${r.run_index} (memory makes each run sharper).</div></div>
+      <div class="note">Run #${r.run_index} · explored ${r.explored} of ${r.space} moves (${r.coverage_pct}%) · ${r.total_obs} evaluations of evidence. Each run explores more and sharpens.</div></div>
     <div class="card"><h2>✍️ Ready-to-use ads (top moves)</h2>${r.ads.map(adHTML).join('')}</div>
     <div class="card"><h2>📊 What wins</h2><div class="wins">
       ${winHTML('Who (segment)',L.segment)}${winHTML('Where (channel)',L.channel)}
       ${winHTML('Message (angle)',L.angle)}${winHTML('The ask (offer)',L.offer)}
       ${winHTML('Format',L.format)}</div></div>
     <div class="card"><button class="again" id="again">🔁 Run again — it gets smarter</button>
-      <div class="note">Run the top ads for real, then come back: feed clicks/replies and the same population will certify which moves truly work and refine the rest.</div></div>`;
+      <div class="note">Each run explores new combinations and accumulates evidence. Run the top ads for real, then feed clicks/replies back to certify which moves truly work.</div></div>`;
   $('#again').onclick = ()=>launch(d.brief);
 }
 
