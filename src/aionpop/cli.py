@@ -14,7 +14,7 @@ import sys
 import time
 from typing import Dict
 
-from aionpop import __version__, heartbeat, ingest, init, share, signing
+from aionpop import __version__, factorial, heartbeat, ingest, init, share, signing
 from aionpop.anchors.csv_anchor import CSVAnchor
 from aionpop.anchors.synthetic import SyntheticAnchor
 from aionpop.levers import SelfEduLevers, SelfOrgLevers, demo_mechanisms
@@ -340,6 +340,88 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return 1
 
 
+def _print_factorial(rep: dict) -> None:
+    cat, fac = rep["catalog"], rep["factorial"]
+    me, it = fac.get("main_effects", {}), fac.get("interactions", {})
+    print()
+    print(f"  Experiment: {rep['design']}  ·  verdict={rep['verdict']}"
+          f"  (seed={rep['seed']}{', quick' if rep['quick'] else ''})")
+    print("  " + "-" * 72)
+    for k, v in rep["gates"].items():
+        print(f"    {'PASS' if v else 'FAIL'}  {k}")
+    fdr = cat["fdr_vs_truth"]
+    print(f"\n  Catalog: {cat['n_certified']}/{cat['n_candidates']} combos certified"
+          + (f"  ·  FDR vs truth={fdr:.3f}" if fdr is not None else ""))
+    if fac.get("valid"):
+        print(f"  Main effects: {me['n_significant']} certified  ·  FDR={me['fdr']:.3f}  "
+              f"·  power(strong)={me['power_strong']:.2f}")
+        print(f"  Interactions: planted recovered={it['power_planted']:.2f}  "
+              f"·  realized FDR={it['fdr']:.2f}  (BH controls expected FDR at q; "
+              f"realized is coarse with few discoveries)")
+        top = [r for r in it["rows"] if r["is_planted"]][:4]
+        for r in top:
+            print(f"      ✓ {r['pair']}   coef={r['coef']:+.3f}  (planted {r['planted_effect']:+.2f})")
+    print("  KPIs that track value:")
+    for name, m in rep["metric_validation"].items():
+        mark = "ok" if m["correct"] else "WRONG"
+        print(f"      {m['verdict']:9} (exp {m['expected']:9}) {mark}  {name}  rho={m['rho']:+.3f}")
+    print()
+
+
+def _print_factorial_calibration(rep: dict) -> None:
+    print()
+    print(f"  Calibrate: {rep['design']}  ·  verdict={rep['verdict']}")
+    print(f"  Decision space: {rep['n_total_combinations']:,} possible combinations")
+    print("  " + "-" * 72)
+    for k, v in rep["gates"].items():
+        print(f"    {'PASS' if v else 'FAIL'}  {k}")
+    aa, me = rep["aa_null"], rep["real"]["main_effects"]
+    print(f"\n  A/A (pure noise) → certified={aa['n_certified']}  "
+          f"main_significant={aa['n_main_significant']}  (both should be ~0)")
+    print(f"  On your truth    → main power(strong)={me.get('power_strong', 0):.2f}  "
+          f"FDR={me.get('fdr', 0):.3f}")
+    print()
+
+
+def cmd_experiment(args: argparse.Namespace) -> int:
+    if args.list:
+        print("Prebuilt experiment designs:")
+        for name, d in factorial.PREBUILT.items():
+            print(f"  {name:16} — {d.description}")
+        print("\n  aionpop experiment saas_growth --quick")
+        print("  aionpop experiment <your_design.json> --calibrate")
+        print("  aionpop experiment --new my_experiment.json   # scaffold your own")
+        return 0
+    if args.new:
+        name = os.path.splitext(os.path.basename(args.new))[0]
+        with open(args.new, "w", encoding="utf-8") as f:
+            json.dump(factorial.scaffold_template(name), f, indent=2, ensure_ascii=False)
+        print(f"wrote {args.new}\nEdit factors/lever_map/main_effects/interactions, then:"
+              f"\n  aionpop experiment {args.new} --calibrate --quick")
+        return 0
+    if not args.design:
+        print("error: pass a design (prebuilt name or JSON path), or --list / --new",
+              file=sys.stderr)
+        return 2
+    try:
+        design = factorial.get_design(args.design)
+    except (KeyError, ValueError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+    edu = SelfEduLevers(n_units=args.units, n_permutations=args.perms, fdr_q=args.fdr)
+    if args.calibrate:
+        rep = factorial.run_calibration(design, edu, seed=args.seed, quick=args.quick)
+        _print_factorial_calibration(rep)
+    else:
+        rep = factorial.run_experiment(design, edu, seed=args.seed, quick=args.quick)
+        _print_factorial(rep)
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as f:
+            json.dump(rep, f, indent=2, ensure_ascii=False)
+        print(f"  wrote {args.out}")
+    return 0
+
+
 def cmd_version(_: argparse.Namespace) -> int:
     print(f"aionpop {__version__}")
     return 0
@@ -434,6 +516,21 @@ def build_parser() -> argparse.ArgumentParser:
     vr = sub.add_parser("verify", help="verify a run/card signature (External-Anchor Verified)")
     vr.add_argument("path", help="path to a run json or a share .html card")
     vr.set_defaults(func=cmd_verify)
+
+    ex = sub.add_parser("experiment",
+                        help="certify factor main-effects + 2-way interactions + validate KPIs")
+    ex.add_argument("design", nargs="?", help="prebuilt name (saas_growth, b2b_outreach) or JSON path")
+    ex.add_argument("--list", action="store_true", help="list prebuilt designs")
+    ex.add_argument("--new", metavar="PATH", help="scaffold a custom design JSON to edit")
+    ex.add_argument("--calibrate", action="store_true",
+                    help="validity self-check (A/A + power) — run this first")
+    ex.add_argument("--seed", type=int, default=42)
+    ex.add_argument("--units", type=int, default=200, help="paired observations per combo")
+    ex.add_argument("--perms", type=int, default=1000)
+    ex.add_argument("--fdr", type=float, default=0.05)
+    ex.add_argument("--quick", action="store_true", help="small fast run")
+    ex.add_argument("--out", help="write the full report JSON to this path")
+    ex.set_defaults(func=cmd_experiment)
 
     v = sub.add_parser("version", help="print version")
     v.set_defaults(func=cmd_version)
