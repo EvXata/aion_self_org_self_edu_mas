@@ -62,8 +62,7 @@
         <option value="awareness">Awareness — they don't know me yet</option>
         <option value="leads">Leads — get qualified interest</option>
         <option value="sales">Sales — convert to orders</option></select></div>
-      <div><label>Depth (how thoroughly to explore)</label><select id="gens">
-        <option value="12">Quick (~6s)</option><option value="16" selected>Standard (~8s)</option><option value="28">Deep (~14s)</option></select></div>
+      <div><label>Depth</label><div style="color:var(--mut);font-size:12px;padding-top:9px">Auto — runs until the result plateaus (no number to pick)</div></div>
     </div>
     <button class="go" id="go">▶ Explore the market</button>
     <div class="runs" id="runs"></div>
@@ -99,22 +98,23 @@ async function render(){
   const sig=prog.length+(d.results?1e6:0); if(sig===lastP) return; lastP=sig;
 
   if(!d.results){
-    const w = last.gen? (last.gen/last.generations*100):4;
-    $('#out').innerHTML = `<div class="card"><h2>Exploring the go-to-market space…</h2>
+    const w = last.gen? Math.min(100,(last.stall||0)/(last.patience||6)*100):4;
+    $('#out').innerHTML = `<div class="card"><h2>Exploring to plateau…</h2>
       <div class="prog"><div class="track"><i style="width:${w}%"></i></div>
-      <span style="color:var(--mut);font-size:12px">gen ${last.gen||0}/${last.generations||'?'} · ${last.explored||0} of ${last.space||0} combinations · best fit ${last.best||0}</span></div></div>`;
+      <span style="color:var(--mut);font-size:12px">round ${last.round||1} · gen ${last.gen||0} · ${last.explored||0} of ${last.space||0} combinations · best fit ${last.best_so_far||last.best||0} · settling ${last.stall||0}/${last.patience||6}</span></div></div>`;
     return;
   }
   const r=d.results, L=r.learnings, dl=r.delta;
   const deltaCard = dl ? `<div class="card" style="border-left:3px solid var(--ok)"><h2>📈 What improved since last run</h2>
       <div class="move"><span><b class="hot">+${dl.new_combos}</b> new combinations explored · coverage <b class="hot">${dl.prev_coverage_pct}% → ${dl.coverage_pct}%</b> of ${r.space}</span></div>
       <div class="move"><span>Evidence <b class="hot">${dl.prev_obs} → ${dl.obs}</b> evaluations · best fit ${dl.prev_best} → <b class="hot">${dl.best}</b></span></div>
+      ${dl.converged ? '<div class="move"><span>🏁 <b class="hot">Plateau reached</b> — more runs add little; this is the answer.</span></div>' : ''}
       ${(dl.changes&&dl.changes.length) ? dl.changes.map(c=>`<div class="move"><span>↻ ${c}</span></div>`).join('') : '<div class="move"><span>✓ Top moves <b class="hot">confirmed</b> — now with more evidence and confidence.</span></div>'}
     </div>` : '';
   $('#out').innerHTML = deltaCard + `
     <div class="card"><h2>🎯 Top strategic moves — ${d.brief.product} in ${d.brief.region}</h2>
       ${r.moves.map(moveHTML).join('')}
-      <div class="note">Run #${r.run_index} · explored ${r.explored} of ${r.space} moves (${r.coverage_pct}%) · ${r.total_obs} evaluations of evidence. Each run explores more and sharpens.</div></div>
+      <div class="note">Run #${r.run_index} · auto-stopped at a plateau after <b>${r.gens_used} generations</b>${d.plateau_rounds?(' over '+d.plateau_rounds+' rounds'):''} · explored ${r.explored}/${r.space} moves (${r.coverage_pct}%) · ${r.total_obs} evaluations${r.converged?' · ✓ converged':''}.</div></div>
     <div class="card"><h2>✍️ Ready-to-use ads (top moves)</h2>${r.ads.map(adHTML).join('')}</div>
     <div class="card"><h2>📊 What wins</h2><div class="wins">
       ${winHTML('Who (segment)',L.segment)}${winHTML('Where (channel)',L.channel)}
@@ -131,7 +131,7 @@ async function launch(brief){
     selected=r.id; lastP=-1; refreshRuns(); render();
   }catch(e){}
 }
-$('#go').onclick=()=>launch({product:$('#product').value,region:$('#region').value,pitch:$('#pitch').value,goal:$('#goal').value,generations:+$('#gens').value});
+$('#go').onclick=()=>launch({product:$('#product').value,region:$('#region').value,pitch:$('#pitch').value,goal:$('#goal').value});
 
 refreshRuns(); render();
 setInterval(()=>{refreshRuns();render();},700);

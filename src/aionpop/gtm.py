@@ -140,7 +140,9 @@ def _moves(est: Dict[str, Dict[str, float]], product: str, region: str) -> List[
 
 @dataclass
 class GtmSettings:
-    generations: int = 16
+    max_generations: int = 60   # hard cap; a run auto-stops earlier at a plateau
+    patience: int = 6           # stop after this many generations with no improvement
+    eps: float = 0.004          # what counts as "improvement"
     pop: int = 60
     noise: float = 0.10
     seed: int = 42
@@ -173,7 +175,9 @@ def explore(brief: dict, s: GtmSettings, on_generation: Callable[[dict], None],
     run_sums = {f: {} for f in FACTORS}
     run_counts = {f: {} for f in FACTORS}
 
-    for gen in range(1, s.generations + 1):
+    best_so_far, stall, gen, plateau_at = -1.0, 0, 0, 0
+    while gen < s.max_generations:                          # auto-stop at a plateau, not a fixed count
+        gen += 1
         scored = []
         for c in pop:
             r = _resonance(c, latent) + rng.gauss(0, s.noise)
@@ -185,10 +189,17 @@ def explore(brief: dict, s: GtmSettings, on_generation: Callable[[dict], None],
         scored.sort(key=lambda x: -x[0])
         best_r, best_c = scored[0]
         mean_r = sum(x[0] for x in scored) / len(scored)
-        on_generation({"gen": gen, "generations": s.generations, "explored": len(explored),
-                       "space": space, "best": round(best_r, 3), "mean": round(mean_r, 3),
+        if best_r > best_so_far + s.eps:
+            best_so_far, stall, plateau_at = best_r, 0, gen
+        else:
+            stall += 1
+        on_generation({"gen": gen, "max": s.max_generations, "explored": len(explored),
+                       "space": space, "best": round(best_r, 3), "best_so_far": round(best_so_far, 3),
+                       "mean": round(mean_r, 3), "stall": stall, "patience": s.patience,
                        "strong": sum(1 for r, _ in scored if r > mean_r + 0.05), "best_combo": best_c})
         if should_stop and should_stop():
+            break
+        if stall >= s.patience:                            # plateau reached → stop automatically
             break
         keep = max(4, s.pop // 3)
         elite = [c for _, c in scored[:keep]]
@@ -203,6 +214,8 @@ def explore(brief: dict, s: GtmSettings, on_generation: Callable[[dict], None],
         pop = nxt
         if s.tick:
             time.sleep(s.tick)
+    gens_used = gen
+    converged = stall >= s.patience
 
     for f in FACTORS:                                        # fold this run's evidence into memory
         for lv in FACTORS[f]:
@@ -244,6 +257,10 @@ def explore(brief: dict, s: GtmSettings, on_generation: Callable[[dict], None],
                  "obs": total_obs, "prev_obs": prev.get("obs", 0),
                  "best": best_score, "prev_best": prev.get("best", 0.0),
                  "changes": changes}
+        # the RESULT has plateaued when the best stops improving and the top
+        # moves stop changing (coverage may still grow, but the answer is stable)
+        delta["converged"] = (best_score <= prev.get("best", 0.0) + 0.001
+                              and len(changes) == 0)
     mem["history"].append({"run": mem["runs"], "top": top_now,
                            "coverage_pct": coverage_pct, "obs": total_obs, "best": best_score})
     _save_mem(key, mem)
@@ -251,6 +268,7 @@ def explore(brief: dict, s: GtmSettings, on_generation: Callable[[dict], None],
     return {
         "run_index": mem["runs"], "explored": len(explored), "space": space,
         "coverage_pct": coverage_pct, "total_obs": total_obs, "best_score": best_score,
+        "gens_used": gens_used, "plateau_at": plateau_at, "converged": converged,
         "delta": delta,
         "moves": _moves(est, product, brief.get("region", "your market")),
         "ads": ads,

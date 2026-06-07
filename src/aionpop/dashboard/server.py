@@ -56,23 +56,31 @@ def launch(brief: dict) -> str:
              "region": (brief.get("region") or "Europe").strip(),
              "goal": brief.get("goal") or "awareness",
              "pitch": (brief.get("pitch") or "").strip()}
-    try:
-        gens = max(6, min(40, int(brief.get("generations", 16))))
-    except (TypeError, ValueError):
-        gens = 16
     with _lock:
         _counter[0] += 1
         rid = f"r{_counter[0]}"
     rec = {"id": rid, "brief": brief, "status": "running",
-           "progress": [], "results": None, "created": time.time()}
+           "progress": [], "results": None, "rounds": 0, "plateau_rounds": None,
+           "created": time.time()}
     RUNS[rid] = rec
     _persist(rec)
 
     def run() -> None:
-        s = gtm.GtmSettings(generations=gens, seed=42 + _counter[0])
+        # Auto-run rounds until the result plateaus (no fixed count asked of the user).
+        s = gtm.GtmSettings(seed=42 + _counter[0], tick=0.2)
+        rounds, cap = 0, 6
         try:
-            res = gtm.explore(brief, s, lambda g: (rec["progress"].append(g), _persist(rec)))
-            rec["results"] = res
+            while rounds < cap:
+                rounds += 1
+                res = gtm.explore(
+                    brief, s,
+                    lambda g: (rec["progress"].append({**g, "round": rounds}), _persist(rec)))
+                rec["results"] = res
+                rec["rounds"] = rounds
+                _persist(rec)
+                if res.get("delta") and res["delta"].get("converged"):
+                    break                       # run-over-run gain has plateaued
+            rec["plateau_rounds"] = rounds
         finally:
             rec["status"] = "done"
             _persist(rec)
