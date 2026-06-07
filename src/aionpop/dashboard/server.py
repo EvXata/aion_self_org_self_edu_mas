@@ -12,7 +12,7 @@ import threading
 import time
 from urllib.parse import parse_qs, urlparse
 
-from aionpop import gtm
+from aionpop import gtm, gtm_outcomes, llm
 
 HOME = os.path.expanduser("~/.aionpop")
 GTM_DIR = os.path.join(HOME, "gtm_runs")
@@ -61,7 +61,7 @@ def launch(brief: dict) -> str:
         rid = f"r{_counter[0]}"
     rec = {"id": rid, "brief": brief, "status": "running",
            "progress": [], "results": None, "rounds": 0, "plateau_rounds": None,
-           "created": time.time()}
+           "certification": None, "created": time.time()}
     RUNS[rid] = rec
     _persist(rec)
 
@@ -81,12 +81,64 @@ def launch(brief: dict) -> str:
                 if res.get("delta") and res["delta"].get("converged"):
                     break                       # run-over-run gain has plateaued
             rec["plateau_rounds"] = rounds
+            _finalize_copy(rec)                 # one LLM pass on the final result (or templates)
         finally:
             rec["status"] = "done"
             _persist(rec)
 
     threading.Thread(target=run, daemon=True).start()
     return rid
+
+
+def _finalize_copy(rec: dict) -> None:
+    """Give each top ad a stable id, then rewrite copy with Claude once (if a key is
+    configured) — otherwise the stdlib template copy stands. Never raises."""
+    res = rec.get("results") or {}
+    ads = res.get("ads") or []
+    for i, a in enumerate(ads, 1):
+        a.setdefault("id", f"m{i}")
+    try:
+        if ads and llm.available():
+            enr = llm.enrich_ads_and_moves(rec["brief"], ads, res.get("moves") or [])
+            if enr.get("llm"):
+                res["ads"], res["moves"] = enr["ads"], enr["moves"]
+                res["copy_by"] = "claude:" + (enr.get("model") or "")
+                return
+    except Exception:
+        pass
+    res["copy_by"] = "template"
+
+
+def certify_run(rid: str, payload: dict) -> bool:
+    """Kick off certification of a run's ads against REAL outcomes, in a background
+    thread (the multi-seed permutation test takes a few seconds). The UI polls
+    `/api/run` and renders `certification` when it flips to done."""
+    rec = RUNS.get(rid)
+    if not rec:
+        return False
+    outcomes = payload.get("outcomes") or []
+    metric = "replies" if payload.get("metric") == "replies" else "clicks"
+    bl = payload.get("baseline")
+    try:
+        baseline = float(bl) / 100.0 if bl not in (None, "") else None   # UI sends a %
+    except (TypeError, ValueError):
+        baseline = None
+    if payload.get("destinations"):
+        gtm_outcomes.set_destinations(rid, payload["destinations"])
+
+    rec["certification"] = {"status": "running", "metric": metric}
+    _persist(rec)
+
+    def work() -> None:
+        try:
+            result = gtm_outcomes.certify_outcomes(rid, outcomes, metric=metric, baseline=baseline)
+            rec["certification"] = {"status": "done", "metric": metric, "result": result}
+        except Exception as e:  # never leave the UI spinning
+            rec["certification"] = {"status": "error", "metric": metric, "error": str(e)}
+        _persist(rec)
+
+    threading.Thread(target=work, daemon=True).start()
+    return True
 
 
 class _Handler(http.server.BaseHTTPRequestHandler):
@@ -100,9 +152,25 @@ class _Handler(http.server.BaseHTTPRequestHandler):
     def _json(self, obj, code: int = 200) -> None:
         self._send(json.dumps(obj).encode(), "application/json; charset=utf-8", code)
 
+    def _redirect(self, url: str) -> None:
+        self.send_response(302)
+        self.send_header("Location", url)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def _body(self) -> dict:
+        n = int(self.headers.get("Content-Length") or 0)
+        if not n:
+            return {}
+        try:
+            return json.loads(self.rfile.read(n).decode() or "{}")
+        except Exception:
+            return {}
+
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         path, q = parsed.path, parse_qs(parsed.query)
+        parts = [p for p in path.split("/") if p]
         if path in ("/", "/index.html"):
             with open(os.path.join(STATIC, "index.html"), "rb") as f:
                 self._send(f.read(), "text/html; charset=utf-8")
@@ -111,19 +179,46 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         elif path == "/api/runs":
             self._json([_summary(r) for r in sorted(RUNS.values(), key=lambda x: x.get("created", 0))])
         elif path == "/api/run":
-            r = RUNS.get((q.get("id") or [None])[0])
+            rid = (q.get("id") or [None])[0]
+            r = RUNS.get(rid)
+            if r:
+                r = {**r, "captured_clicks": gtm_outcomes.click_counts(rid),
+                     "destinations": gtm_outcomes.get_destinations(rid)}
             self._json(r if r else {"error": "not found"}, 200 if r else 404)
+        elif len(parts) == 3 and parts[0] == "r":          # /r/<run>/<move> tracking click
+            _run, move = parts[1], parts[2]
+            if _run not in RUNS:                            # only count clicks for known runs
+                self._json({"error": "unknown run"}, 404)
+                return
+            gtm_outcomes.record_click(_run, move)
+            dest = gtm_outcomes.get_destination(_run, move)
+            if dest:
+                self._redirect(dest)
+            else:
+                self._send(b"<!doctype html><meta charset=utf-8><title>tracking active</title>"
+                           b"<body style='font:16px system-ui;padding:3rem;color:#234'>"
+                           b"\xe2\x9c\x93 Click recorded. Set this ad's destination URL in the "
+                           b"dashboard so visitors land on your page.</body>",
+                           "text/html; charset=utf-8")
         else:
             self._json({"error": "not found"}, 404)
 
     def do_POST(self) -> None:  # noqa: N802
-        if urlparse(self.path).path == "/api/run/new":
-            n = int(self.headers.get("Content-Length") or 0)
-            try:
-                brief = json.loads(self.rfile.read(n).decode() or "{}") if n else {}
-            except Exception:
-                brief = {}
-            self._json({"id": launch(brief)})
+        path = urlparse(self.path).path
+        parts = [p for p in path.split("/") if p]
+        if path == "/api/run/new":
+            self._json({"id": launch(self._body())})
+        # /api/run/<id>/outcomes  ·  /api/run/<id>/tracking
+        elif len(parts) == 4 and parts[0] == "api" and parts[1] == "run" and parts[3] == "outcomes":
+            ok = certify_run(parts[2], self._body())
+            self._json({"ok": ok, "status": "running"} if ok else {"error": "unknown run"},
+                       200 if ok else 404)
+        elif len(parts) == 4 and parts[0] == "api" and parts[1] == "run" and parts[3] == "tracking":
+            if parts[2] in RUNS:
+                dest = gtm_outcomes.set_destinations(parts[2], (self._body().get("destinations") or {}))
+                self._json({"ok": True, "destinations": dest})
+            else:
+                self._json({"error": "unknown run"}, 404)
         else:
             self._json({"error": "not found"}, 404)
 

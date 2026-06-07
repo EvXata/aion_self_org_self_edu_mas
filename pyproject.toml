@@ -32,6 +32,10 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+# LIVE ad copy via Claude. Optional on purpose: without it (the default) the GTM
+# explorer writes copy from stdlib templates — fully offline. With it + an
+# ANTHROPIC_API_KEY set, the top ads are rewritten by Claude. See src/aionpop/llm.py.
+llm = ["anthropic>=0.40"]
 
 [project.scripts]
 aionpop = "aionpop.cli:main"

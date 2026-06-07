@@ -44,6 +44,27 @@
   .note{color:var(--mut);font-size:12px;margin-top:8px}
   .empty{color:var(--mut)}
   b.hot{color:var(--ink)}
+  .copyby{font-size:11px;color:var(--mut);font-weight:400;text-transform:none;letter-spacing:0}
+  .cset{display:flex;gap:18px;align-items:flex-end;margin:6px 0 14px}
+  .cset>div{flex:0 0 auto} .cset input,.cset select{width:170px}
+  .crow{border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:10px;background:var(--panel2)}
+  .crow .ctitle{display:flex;gap:9px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px}
+  .crow .ctitle .meta{color:var(--mut);font-size:11.5px}
+  .ctrack{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12px;color:var(--mut)}
+  .ctrack code{background:#0b1119;border:1px solid var(--line);border-radius:6px;padding:3px 7px;color:var(--acc);font-size:11.5px}
+  .ctrack .cdest{flex:1;min-width:180px}
+  .ctrack .chint{color:var(--ok)}
+  .cpy{background:#1f2a3a;border:1px solid var(--line);border-radius:7px;padding:4px 9px;color:var(--acc);cursor:pointer;font-size:11.5px}
+  .cnums{display:flex;gap:14px;flex-wrap:wrap}
+  .cnums label{display:inline-flex;align-items:center;gap:7px;margin:0;text-transform:none;letter-spacing:0;font-size:12.5px;color:var(--ink)}
+  .cnums input{width:92px}
+  .vrow{display:flex;gap:10px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .vrow .tag{font-weight:800;border-radius:6px;padding:2px 8px;font-size:11.5px}
+  .vrow .yes{background:#0f2e18;color:var(--ok);border:1px solid #1c5}
+  .vrow .no{background:#2a1f12;color:var(--gold);border:1px solid #7a5}
+  .vrow .st{color:var(--mut);font-size:11.5px}
+  .badge{display:inline-block;background:#0f2e18;border:1px solid #1c5;color:var(--ok);border-radius:8px;padding:5px 11px;font-size:12px;font-weight:700;margin-top:10px}
+  .btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
 </style>
 </head>
 <body>
@@ -69,18 +90,20 @@
   </div>
 
   <div id="out"><div class="card empty">Fill in your product above and hit <b>Explore the market</b>.</div></div>
+  <div id="certify"></div>
 </div>
 
 <script>
 const $=s=>document.querySelector(s);
-let selected=null, lastP=-1;
+let selected=null, lastP=-1, certifyFor=null;
+const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 async function refreshRuns(){
   let xs=[]; try{ xs=await (await fetch('/api/runs')).json(); }catch(e){return;}
   if(!selected && xs.length) selected=xs[xs.length-1].id;
   $('#runs').innerHTML = xs.slice().reverse().map(x=>
     `<span class="chip ${x.id===selected?'sel':''}" data-id="${x.id}">${x.product} · ${x.region} ${x.status==='running'?'⏳':'✓'}${x.run_index?(' · run '+x.run_index):''}</span>`).join('');
-  document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{selected=c.dataset.id;lastP=-1;refreshRuns();render();});
+  document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{selected=c.dataset.id;lastP=-1;certifyFor=null;$('#certify').innerHTML='';refreshRuns();render();});
 }
 
 function moveHTML(m,i){ return `<div class="move"><span class="n">${i+1}</span><span>${m.replace(/\*\*(.+?)\*\*/g,'<b class="hot">$1</b>')}</span></div>`; }
@@ -89,11 +112,96 @@ function adHTML(a){ return `<div class="ad"><div class="hl">${a.headline}</div><
 function winHTML(label,levels){ const mx=levels[0]?levels[0][1]:1;
   return `<div class="win"><b>${label}</b>${levels.slice(0,4).map(([nm,v])=>
     `<div class="lv"><span class="nm">${nm}</span><span class="bar"><i style="width:${Math.max(4,v/mx*100)}%"></i></span><span class="v">${v}</span></div>`).join('')}</div>`; }
+function copyByHTML(by){
+  if(by&&by.indexOf('claude')===0){ const m=by.split(':')[1]||''; return '— ✍️ written by Claude'+(m?(' ('+esc(m)+')'):''); }
+  return '— from templates · set ANTHROPIC_API_KEY (pip install \'aion-populations[llm]\') for live Claude copy'; }
+
+// ---- Certify on real data (its own container so polling never wipes your inputs) ----
+function syncCertify(d){
+  const c=$('#certify');
+  // only once the run is DONE: its ads now have stable ids + final (Claude) copy
+  if(d.status!=='done'||!d.results||!d.results.ads||!d.results.ads.length){
+    if(certifyFor){ c.innerHTML=''; certifyFor=null; } return; }
+  if(certifyFor!==selected){ buildCertify(d); certifyFor=selected; }
+  updateCertify(d);
+}
+function buildCertify(d){
+  const ads=d.results.ads, origin=location.origin, dests=d.destinations||{}, caps=d.captured_clicks||{};
+  const rows=ads.map((a,i)=>{ const id=a.id||('m'+(i+1)), link=origin+'/r/'+selected+'/'+id;
+    return `<div class="crow" data-id="${id}">
+      <div class="ctitle"><b class="hot">#${i+1}</b><span>${esc(a.headline)}</span>
+        <span class="meta">${esc(a.channel)} · ${esc(a.segment)}</span></div>
+      <div class="ctrack"><span>tracking link:</span><code>${esc(link)}</code>
+        <button class="cpy" data-link="${esc(link)}">copy</button>
+        <input class="cdest" placeholder="https://your-landing-page" value="${esc(dests[id]||'')}">
+        <span class="chint" data-id="${id}"></span></div>
+      <div class="cnums">
+        <label>impressions <input class="cimp" type="number" min="0" placeholder="0"></label>
+        <label>clicks <input class="cclk" type="number" min="0" value="${caps[id]||''}" placeholder="0"></label>
+        <label>replies <input class="crep" type="number" min="0" placeholder="0"></label>
+      </div></div>`; }).join('');
+  $('#certify').innerHTML=`<div class="card">
+    <h2>🔬 Certify on real data — turn the prior into proof</h2>
+    <div class="note">Run these ads for real. Paste the numbers from LinkedIn / Google / your email tool, or use the tracking link to capture clicks automatically. The same engine then certifies which ads truly beat your baseline rate — FDR-controlled, replicated on held-out data, and signed. No longer the prior model.</div>
+    <div class="cset">
+      <div><label>Metric</label><select id="cmetric"><option value="clicks">Clicks (CTR)</option><option value="replies">Replies / conversions</option></select></div>
+      <div><label>Baseline %</label><input id="cbaseline" placeholder="auto = your average"></div>
+    </div>
+    ${rows}
+    <div class="btnrow">
+      <button class="cpy" id="csave" style="padding:11px 16px;font-size:14px;font-weight:800">💾 Save tracking links</button>
+      <button class="again" id="cgo">▶ Certify on real data</button>
+    </div>
+    <div id="cout"></div></div>`;
+  document.querySelectorAll('#certify .cpy[data-link]').forEach(b=>b.onclick=()=>{
+    if(navigator.clipboard) navigator.clipboard.writeText(b.dataset.link);
+    b.textContent='copied ✓'; setTimeout(()=>b.textContent='copy',1200); });
+  $('#csave').onclick=saveTracking; $('#cgo').onclick=certify;
+}
+function collectCertify(){
+  const dests={}, outcomes=[];
+  document.querySelectorAll('#certify .crow').forEach(row=>{ const id=row.dataset.id;
+    const dest=row.querySelector('.cdest').value.trim(); if(dest) dests[id]=dest;
+    outcomes.push({move_id:id, impressions:+row.querySelector('.cimp').value||0,
+      clicks:+row.querySelector('.cclk').value||0, replies:+row.querySelector('.crep').value||0}); });
+  const bl=$('#cbaseline').value.trim();
+  return {outcomes, dests, metric:$('#cmetric').value, baseline: bl===''?null:bl};
+}
+async function saveTracking(){ const {dests}=collectCertify();
+  try{ await fetch('/api/run/'+selected+'/tracking',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({destinations:dests})});
+    const b=$('#csave'); b.textContent='saved ✓'; setTimeout(()=>b.textContent='💾 Save tracking links',1400);
+  }catch(e){} }
+async function certify(){ const {outcomes,dests,metric,baseline}=collectCertify();
+  if(!outcomes.some(o=>o.impressions>0)){ $('#cout').innerHTML='<div class="note">Enter impressions (and clicks/replies) for at least one ad first.</div>'; return; }
+  $('#cout').innerHTML='<div class="note">⏳ Certifying on your real data… (screen → confirm → replicate across seeds)</div>';
+  try{ await fetch('/api/run/'+selected+'/outcomes',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({outcomes,metric,baseline,destinations:dests})});
+  }catch(e){ $('#cout').innerHTML='<div class="note">request failed — is the server running?</div>'; } }
+function updateCertify(d){
+  const caps=d.captured_clicks||{};
+  document.querySelectorAll('#certify .chint').forEach(s=>{ const n=caps[s.dataset.id]||0; s.textContent=n?('captured clicks: '+n):''; });
+  const cert=d.certification, out=$('#cout'); if(!cert||!out) return;
+  if(cert.status==='running'){ out.innerHTML='<div class="note">⏳ Certifying on your real data… (screen → confirm → replicate across seeds)</div>'; return; }
+  if(cert.status==='error'){ out.innerHTML='<div class="note">certification error: '+esc(cert.error)+'</div>'; return; }
+  if(cert.status!=='done'||!cert.result) return;
+  const r=cert.result; if(!r.ok){ out.innerHTML='<div class="note">'+esc(r.error||'no result')+'</div>'; return; }
+  const adById={}; (d.results.ads||[]).forEach((a,i)=>adById[a.id||('m'+(i+1))]={i,a});
+  const lines=r.verdicts.map(v=>{ const ref=adById[v.move_id]||{}, hd=ref.a?ref.a.headline:v.move_id, idx=ref.i!=null?('#'+(ref.i+1)):'';
+    const tag=v.certified?'<span class="tag yes">CERTIFIED ✓</span>':'<span class="tag no">not yet</span>';
+    const gate=v.gate==='PROMOTE'?' · gate: PROMOTE 🔏':(v.gate?(' · gate: '+esc(v.gate)):'');
+    const up=(v.uplift_pp>=0?'+':'')+v.uplift_pp+'pp vs baseline';
+    const stab=v.seed_stability!=null?(' · stable '+Math.round(v.seed_stability*100)+'%'):'';
+    const warn=v.underpowered?' · ⚠ underpowered ('+v.impressions+' imp)':'';
+    return `<div class="vrow">${tag}<b class="hot">${idx}</b><span>${esc(hd)}</span><span class="st">${up} · p=${v.p}${stab}${gate}${warn}</span></div>`; }).join('');
+  const badge=(r.external&&r.signed&&r.n_promoted>0)?`<div class="badge">🔏 External-Anchor Verified — ${r.n_promoted} ad(s) certified against your real data &amp; signed · <code>aionpop verify ~/.aionpop/gtm_outcomes/run-${esc(selected)}.json</code></div>`:'';
+  out.innerHTML=`<div style="margin-top:8px"><div class="note">Metric: <b class="hot">${esc(r.metric)}</b> · baseline ${r.baseline_pct}% · ${r.n_certified}/${r.n_candidates} certified at FDR q=${r.fdr_q}.</div>${lines}${badge}</div>`;
+}
 
 async function render(){
   if(!selected) return;
   let d; try{ d=await (await fetch('/api/run?id='+encodeURIComponent(selected))).json(); }catch(e){return;}
   if(d.error){ $('#out').innerHTML='<div class="card empty">'+d.error+'</div>'; return; }
+  syncCertify(d);                       // refresh the certify card every poll (no input clobber)
   const prog=d.progress||[], last=prog[prog.length-1]||{};
   const sig=prog.length+(d.results?1e6:0); if(sig===lastP) return; lastP=sig;
 
@@ -115,7 +223,7 @@ async function render(){
     <div class="card"><h2>🎯 Top strategic moves — ${d.brief.product} in ${d.brief.region}</h2>
       ${r.moves.map(moveHTML).join('')}
       <div class="note">Run #${r.run_index} · auto-stopped at a plateau after <b>${r.gens_used} generations</b>${d.plateau_rounds?(' over '+d.plateau_rounds+' rounds'):''} · explored ${r.explored}/${r.space} moves (${r.coverage_pct}%) · ${r.total_obs} evaluations${r.converged?' · ✓ converged':''}.</div></div>
-    <div class="card"><h2>✍️ Ready-to-use ads (top moves)</h2>${r.ads.map(adHTML).join('')}</div>
+    <div class="card"><h2>✍️ Ready-to-use ads (top moves) <span class="copyby">${copyByHTML(r.copy_by)}</span></h2>${r.ads.map(adHTML).join('')}</div>
     <div class="card"><h2>📊 What wins</h2><div class="wins">
       ${winHTML('Who (segment)',L.segment)}${winHTML('Where (channel)',L.channel)}
       ${winHTML('Message (angle)',L.angle)}${winHTML('The ask (offer)',L.offer)}
@@ -128,7 +236,7 @@ async function render(){
 async function launch(brief){
   try{
     const r=await (await fetch('/api/run/new',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(brief)})).json();
-    selected=r.id; lastP=-1; refreshRuns(); render();
+    selected=r.id; lastP=-1; certifyFor=null; $('#certify').innerHTML=''; refreshRuns(); render();
   }catch(e){}
 }
 $('#go').onclick=()=>launch({product:$('#product').value,region:$('#region').value,pitch:$('#pitch').value,goal:$('#goal').value});
